@@ -4,6 +4,7 @@ import express, { Express, Request, Response } from 'express';
 import { verifierConnexionDB } from './config/database.js';
 import { env } from './config/env.js';
 import { errorHandler, notFoundHandler } from './middlewares/errorHandler.js';
+import authRoutes from './routes/authRoutes.js';
 
 const app: Express = express();
 
@@ -20,7 +21,8 @@ app.get('/api/health', (_req: Request, res: Response) => {
   res.json({ status: 'ok' });
 });
 
-// Les routes des modules (auth, matériels, pannes, stock) seront branchées ici.
+app.use('/api/auth', authRoutes);
+// Les routes des modules (matériels, pannes, stock) seront branchées ici.
 
 app.use(notFoundHandler);
 app.use(errorHandler);
