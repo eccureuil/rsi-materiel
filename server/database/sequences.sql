@@ -1,0 +1,2 @@
+CREATE SEQUENCE IF NOT EXISTS seq_num_incident START 1;
+CREATE SEQUENCE IF NOT EXISTS seq_num_intervention START 1;

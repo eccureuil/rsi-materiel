@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import type { PoolClient } from 'pg';
 import { env } from './env.js';
 
 export const pool = new Pool({
@@ -20,6 +21,22 @@ export async function verifierConnexionDB(): Promise<void> {
   try {
     await client.query('SELECT 1');
     console.log('Connexion PostgreSQL établie.');
+  } finally {
+    client.release();
+  }
+}
+
+// Exécute `fn` dans une transaction : COMMIT si tout réussit, ROLLBACK à la première erreur.
+export async function withTransaction<T>(fn: (client: PoolClient) => Promise<T>): Promise<T> {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const result = await fn(client);
+    await client.query('COMMIT');
+    return result;
+  } catch (err) {
+    await client.query('ROLLBACK');
+    throw err;
   } finally {
     client.release();
   }
