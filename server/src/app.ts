@@ -10,6 +10,7 @@ import incidentRoutes from './routes/incidentRoutes.js';
 import interventionRoutes from './routes/interventionRoutes.js';
 import localisationRoutes from './routes/localisationRoutes.js';
 import materielRoutes from './routes/materielRoutes.js';
+import pieceRoutes from './routes/pieceRoutes.js';
 
 const app: Express = express();
 
@@ -32,8 +33,7 @@ app.use('/api/localisations', localisationRoutes);
 app.use('/api/materiels', materielRoutes);
 app.use('/api/incidents', incidentRoutes);
 app.use('/api/interventions', interventionRoutes);
-// Le module stock de pièces sera branché ici,
-// avec `router.use(authenticate, auditTrail)` pour journaliser automatiquement.
+app.use('/api/pieces', pieceRoutes);
 
 app.use(notFoundHandler);
 app.use(errorHandler);

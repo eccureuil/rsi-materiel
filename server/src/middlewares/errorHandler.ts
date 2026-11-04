@@ -20,6 +20,7 @@ function isPgError(err: unknown): err is PgErrorLike {
 const MESSAGES_UNICITE: Record<string, string> = {
   materiels_pkey: 'Ce code matériel existe déjà.',
   materiels_num_serie_key: 'Ce numéro de série est déjà enregistré.',
+  pieces_detachees_pkey: 'Cette référence de pièce existe déjà.',
 };
 
 export function notFoundHandler(_req: Request, res: Response): void {
