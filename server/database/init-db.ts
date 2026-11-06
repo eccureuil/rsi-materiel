@@ -17,7 +17,9 @@ async function main(): Promise<void> {
       return;
     }
 
-    await pool.query('DROP SEQUENCE IF EXISTS seq_num_incident, seq_num_intervention');
+    await pool.query(
+      'DROP SEQUENCE IF EXISTS seq_num_incident, seq_num_intervention, seq_num_bon',
+    );
     await pool.query(lire('schema.sql'));
     await pool.query(lire('sequences.sql'));
     const res = await pool.query<{ table_name: string }>(

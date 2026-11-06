@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="100%" height="100%">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#0F2027" />
+      <stop offset="50%" stop-color="#203A43" />
+      <stop offset="100%" stop-color="#2C5364" />
+    </linearGradient>
+    <linearGradient id="shieldGrad" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#00C6FF" />
+      <stop offset="100%" stop-color="#0072FF" />
+    </linearGradient>
+    <linearGradient id="accentGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#FFD700" />
+      <stop offset="100%" stop-color="#FF9800" />
+    </linearGradient>
+  </defs>
+
+  <rect width="512" height="512" rx="100" fill="url(#bgGrad)" />
+  
+  <circle cx="256" cy="220" r="170" stroke="rgba(0, 198, 255, 0.3)" stroke-width="4" fill="none" stroke-dasharray="10 6" />
+  <circle cx="256" cy="220" r="185" stroke="rgba(255, 255, 255, 0.15)" stroke-width="2" fill="none" />
+
+  <path d="M 256 70 L 360 120 V 250 C 360 320 256 370 256 370 C 256 370 152 320 152 250 V 120 Z" fill="url(#shieldGrad)" opacity="0.2" stroke="url(#shieldGrad)" stroke-width="5" />
+
+  <g transform="translate(0, -10)">
+    <polygon points="256,130 316,160 256,190 196,160" fill="url(#accentGrad)" />
+    <polygon points="196,160 256,190 256,260 196,230" fill="#E67E22" />
+    <polygon points="256,190 316,160 316,230 256,260" fill="#F1C40F" />
+    
+    <path d="M 140 190 Q 256 150 372 190" fill="none" stroke="#00C6FF" stroke-width="6" stroke-linecap="round" />
+    <path d="M 160 210 Q 256 175 352 210" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.8" />
+  </g>
+
+  <rect x="186" y="320" width="140" height="42" rx="10" fill="#00C6FF" />
+  <text x="256" y="350" font-family="sans-serif" font-weight="900" font-size="26" fill="#0F2027" text-anchor="middle" letter-spacing="3">RSI</text>
+
+  <text x="256" y="405" font-family="sans-serif" font-weight="800" font-size="22" fill="#FFFFFF" text-anchor="middle" letter-spacing="2">ASECNA</text>
+  <text x="256" y="432" font-family="sans-serif" font-weight="600" font-size="14" fill="#00C6FF" text-anchor="middle" letter-spacing="4">MADAGASCAR</text>
+  <text x="256" y="458" font-family="sans-serif" font-weight="500" font-size="11" fill="#A0AEC0" text-anchor="middle" letter-spacing="2">GESTION DE MATÉRIEL</text>
+</svg>
