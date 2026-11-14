@@ -17,8 +17,8 @@ export default function Navbar() {
   return (
     <header className="flex h-16 items-center justify-between border-b border-slate-200 bg-white px-6">
       <div className="flex items-center gap-3">
-        <div className="flex h-9 w-9 items-center justify-center rounded-md bg-asecna-bleu font-bold text-white">
-          R
+        <div className="flex h-9 w-9 items-center justify-center rounded-md font-bold text-white">
+          <img src="/logo_asecna.png" alt="" className="h-full w-full object-cover" />
         </div>
         <div>
           <p className="text-sm font-semibold text-slate-900">RSI - ASECNA Madagascar</p>
@@ -39,9 +39,6 @@ export default function Navbar() {
             <div className="text-right">
               <p className="text-sm font-medium text-slate-900 group-hover:text-asecna-bleu">
                 {user.prenom} {user.nom}
-              </p>
-              <p className="text-xs text-slate-500">
-                {user.matricule} - {user.role}
               </p>
             </div>
           </Link>

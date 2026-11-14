@@ -14,6 +14,7 @@ import StockPieces from '@/pages/StockPieces';
 import AuditLogs from '@/pages/AuditLogs';
 import GestionUtilisateurs from '@/pages/GestionUtilisateurs';
 import MonProfil from '@/pages/MonProfil';
+import HistoriqueMaterielPage from '@/pages/HistoriqueMateriel';
 
 export default function App() {
   const { loading } = useAuth();
@@ -35,6 +36,7 @@ export default function App() {
         <Route path="/mon-profil" element={<MonProfil />} />
         <Route path="/utilisateurs" element={<RoleGuard role="ADMINISTRATEUR"><GestionUtilisateurs /></RoleGuard>} />
         <Route path="/audit" element={<RoleGuard role="ADMINISTRATEUR"><AuditLogs /></RoleGuard>} />
+        <Route path="/materiels/:code/historique" element={<HistoriqueMaterielPage />} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

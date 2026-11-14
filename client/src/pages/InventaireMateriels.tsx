@@ -12,6 +12,23 @@ import { Champ, Input, Select, Textarea } from '@/components/FormControls';
 import type {
   Localisation, Materiel, MaterielInput, MaterielUpdateInput, StatutMateriel, TypeCategorie,
 } from '@/types/api';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useSearchParams } from 'react-router-dom';
+import EmptyState, { IconesEmpty } from '@/components/EmptyState';
+import { SkeletonTableau } from '@/components/Skeleton';
+import { Link } from 'react-router-dom';
+
+function genererCodeMateriel(materiels: Materiel[]): string {
+  const prefixe = 'MAT';
+  const existants = materiels
+    .filter((m) => m.code_materiel.startsWith(`${prefixe}-`))
+    .map((m) => {
+      const numero = parseInt(m.code_materiel.slice(prefixe.length + 1), 10);
+      return Number.isNaN(numero) ? 0 : numero;
+    });
+  const prochain = (existants.length > 0 ? Math.max(...existants) : 0) + 1;
+  return `${prefixe}-${String(prochain).padStart(4, '0')}`;
+}
 
 const STATUTS: StatutMateriel[] = ['STOCK', 'SERVICE', 'PANNE', 'MAINTENANCE', 'REFORME'];
 const CATEGORIES: TypeCategorie[] = ['BUREAUTIQUE', 'OPERATIONNEL'];
@@ -47,20 +64,23 @@ export default function InventaireMateriels() {
   const [totalPages, setTotalPages] = useState(1);
   const [chargement, setChargement] = useState(false);
 
-  const [q, setQ] = useState('');
-  const [filtreCategorie, setFiltreCategorie] = useState('');
-  const [filtreStatut, setFiltreStatut] = useState('');
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get('q') ?? '');
+  const qDebounce = useDebounce(q, 300);
+  const [filtreCategorie, setFiltreCategorie] = useState(searchParams.get('type_categorie') ?? '');
+  const [filtreStatut, setFiltreStatut] = useState(searchParams.get('statut_materiel') ?? '');
 
   const [modalOuvert, setModalOuvert] = useState(false);
   const [modeEdition, setModeEdition] = useState<string | null>(null);
   const [form, setForm] = useState<Formulaire>(FORM_VIDE);
   const [envoi, setEnvoi] = useState(false);
+  const filtresActifs = q.trim() !== '' || filtreCategorie !== '' || filtreStatut !== '';
 
   const charger = useCallback(async () => {
     setChargement(true);
     try {
       const res = await listerMateriels({
-        q: q || undefined,
+        q: qDebounce.trim() || undefined,
         type_categorie: filtreCategorie || undefined,
         statut_materiel: filtreStatut || undefined,
         page, limit: 20,
@@ -73,7 +93,7 @@ export default function InventaireMateriels() {
     } finally {
       setChargement(false);
     }
-  }, [q, filtreCategorie, filtreStatut, page, toast]);
+  }, [qDebounce, filtreCategorie, filtreStatut, page, toast]);
 
   useEffect(() => { void charger(); }, [charger]);
   useEffect(() => {
@@ -84,7 +104,8 @@ export default function InventaireMateriels() {
 
   const ouvrirCreation = () => {
     setModeEdition(null);
-    setForm(FORM_VIDE);
+    const codeAuto = genererCodeMateriel(materiels);
+    setForm({ ...FORM_VIDE, code_materiel: codeAuto, type_categorie: 'BUREAUTIQUE' });
     setModalOuvert(true);
   };
 
@@ -179,9 +200,22 @@ export default function InventaireMateriels() {
       </div>
 
       <div className="card overflow-hidden">
-        {chargement && <p className="p-4 text-sm text-slate-500">Chargement…</p>}
-        {!chargement && materiels.length === 0 && <p className="p-4 text-sm text-slate-500">Aucun matériel.</p>}
-        {!chargement && materiels.length > 0 && (
+        {chargement ? (
+          <SkeletonTableau lignes={6} colonnes={6} />
+        ) : materiels.length === 0 ? (
+          <EmptyState
+            icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Boite />}
+            titre={filtresActifs ? 'Aucun materiel ne correspond a vos filtres' : 'Aucun materiel dans l\'inventaire'}
+            description={
+              filtresActifs
+                ? 'Essayez d\'elargir la recherche ou de retirer un filtre.'
+                : 'Ajoutez votre premier materiel pour demarrer l\'inventaire.'
+            }
+            ctaLabel={filtresActifs ? undefined : '+ Nouveau materiel'}
+            ctaOnClick={filtresActifs ? () => { setQ(''); setFiltreCategorie(''); setFiltreStatut(''); } : ouvrirCreation}
+            filtreActif={filtresActifs}
+          />
+        ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
@@ -202,6 +236,9 @@ export default function InventaireMateriels() {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex gap-2">
+                      <Link to={`/materiels/${m.code_materiel}/historique`} className="btn-secondary">
+                        Historique
+                      </Link>
                       <button className="btn-secondary" onClick={() => ouvrirEdition(m)}>Modifier</button>
                       <button className="btn-danger" onClick={() => void supprimer(m.code_materiel)}>Supprimer</button>
                     </div>
@@ -227,16 +264,24 @@ export default function InventaireMateriels() {
           </>
         }>
         <form id="form-materiel" onSubmit={soumettre} className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Champ label="Code matériel *">
-            <Input required value={form.code_materiel} disabled={!!modeEdition}
-              onChange={(e) => setForm({ ...form, code_materiel: e.target.value })}
-              placeholder="^[A-Za-z0-9._-]{1,30}$" />
+          <Champ label="Code matériel (généré automatiquement)">
+            <Input
+              required
+              value={form.code_materiel}
+              readOnly
+              disabled
+              className="cursor-not-allowed bg-slate-100 font-mono"
+            />
           </Champ>
           <Champ label="N° série">
             <Input value={form.num_serie} onChange={(e) => setForm({ ...form, num_serie: e.target.value })} />
           </Champ>
           <Champ label="Marque">
-            <Input value={form.marque} onChange={(e) => setForm({ ...form, marque: e.target.value })} />
+            <Input
+              autoFocus
+              value={form.marque}
+              onChange={(e) => setForm({ ...form, marque: e.target.value })}
+            />
           </Champ>
           <Champ label="Modèle">
             <Input value={form.modele} onChange={(e) => setForm({ ...form, modele: e.target.value })} />
@@ -246,8 +291,21 @@ export default function InventaireMateriels() {
               onChange={(e) => setForm({ ...form, date_acquisition: e.target.value })} />
           </Champ>
           <Champ label="Catégorie *">
-            <Select required value={form.type_categorie}
-              onChange={(e) => setForm({ ...form, type_categorie: e.target.value as TypeCategorie })}>
+            <Select
+              required
+              value={form.type_categorie}
+              disabled={!!modeEdition}
+              onChange={(e) => {
+                const nouvelle = e.target.value as TypeCategorie;
+                setForm({
+                  ...form,
+                  type_categorie: nouvelle,
+                  // On vide les champs spécifiques à l'autre catégorie
+                  type_equipement: nouvelle === 'BUREAUTIQUE' ? form.type_equipement : '',
+                  systeme_aviation: nouvelle === 'OPERATIONNEL' ? form.systeme_aviation : '',
+                });
+              }}
+            >
               {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
             </Select>
           </Champ>
@@ -257,6 +315,23 @@ export default function InventaireMateriels() {
               {STATUTS.map((s) => <option key={s} value={s}>{s}</option>)}
             </Select>
           </Champ>
+          {form.type_categorie === 'BUREAUTIQUE' ? (
+            <Champ label="Type d'équipement">
+              <Input
+                value={form.type_equipement}
+                onChange={(e) => setForm({ ...form, type_equipement: e.target.value })}
+                placeholder="Ex. Ordinateur portable, imprimante..."
+              />
+            </Champ>
+          ) : (
+            <Champ label="Système aviation">
+              <Input
+                value={form.systeme_aviation}
+                onChange={(e) => setForm({ ...form, systeme_aviation: e.target.value })}
+                placeholder="Ex. Système de suivi de vol, radar..."
+              />
+            </Champ>
+          )}
           <Champ label="Localisation *">
             <Select required value={form.id_localisation}
               onChange={(e) => setForm({ ...form, id_localisation: e.target.value })}>
@@ -267,14 +342,6 @@ export default function InventaireMateriels() {
                 </option>
               ))}
             </Select>
-          </Champ>
-          <Champ label="Type d’équipement">
-            <Input value={form.type_equipement}
-              onChange={(e) => setForm({ ...form, type_equipement: e.target.value })} />
-          </Champ>
-          <Champ label="Système aviation">
-            <Input value={form.systeme_aviation}
-              onChange={(e) => setForm({ ...form, systeme_aviation: e.target.value })} />
           </Champ>
           <div className="md:col-span-2">
             <Champ label="Caractéristiques">

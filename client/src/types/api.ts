@@ -122,9 +122,18 @@ export interface Incident {
   degre_urgence: DegreUrgence;
   statut_incident: StatutIncident;
   motif_rejet: string | null;
+  marque?: string | null;
+  modele?: string | null;
+  type_categorie?: string;
+  nom_service?: string;
+  matricule_declarant?: string;
+  declarant_nom?: string;
+  declarant_prenom?: string;
+  num_intervention?: string | null;
+  nb_intervenants?: number;
+  intervenants?: string[];
   fiche?: FicheIntervention | null;
 }
-
 export interface IncidentInput {
   code_materiel: string;
   symptomes: string;
@@ -266,6 +275,10 @@ export interface Affectation {
   nom_service: string;
   code_bureau: string | null;
   ville: string;
+  id_localisation_origine: number | null;
+  origine_nom_service: string | null;
+  origine_code_bureau: string | null;
+  origine_ville: string | null;
   date_mouvement: string;
   type_mouvement: TypeMouvement;
   agent_beneficiaire: string;
@@ -300,9 +313,10 @@ export interface AffectationCreateInput {
   id_localisation: number;
   agent_beneficiaire: string;
   motif_mouvement?: string;
+  generer_bon?: boolean;
 }
 
 export interface CreationAffectationResponse {
   affectation: Affectation;
-  bon: BonDecharge;
+  bon: BonDecharge | null;
 }

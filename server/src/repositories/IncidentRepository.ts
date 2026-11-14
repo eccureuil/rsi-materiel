@@ -10,18 +10,24 @@ import type { StatutMateriel } from '../models/materiel.js';
 
 const SELECT_INCIDENT = `
   SELECT i.num_incident, i.code_materiel, m.marque, m.modele, m.type_categorie,
-         l.nom_service, i.matricule_declarant,
-         u.nom AS declarant_nom, u.prenom AS declarant_prenom,
-         to_char(i.date_declaration, 'YYYY-MM-DD HH24:MI:SS') AS date_declaration,
-         i.symptomes, i.degre_urgence, i.statut_incident,
-         f.num_intervention,
-         (SELECT COUNT(*)::int FROM intervenants_fiches x
-           WHERE x.num_intervention = f.num_intervention) AS nb_intervenants
-    FROM pannes_incidents i
-    JOIN materiels m      ON m.code_materiel = i.code_materiel
-    JOIN localisations l  ON l.id_localisation = m.id_localisation
-    JOIN utilisateurs u   ON u.matricule = i.matricule_declarant
-    LEFT JOIN fiches_interventions f ON f.num_incident = i.num_incident`;
+       l.nom_service, i.matricule_declarant,
+       u.nom AS declarant_nom, u.prenom AS declarant_prenom,
+       to_char(i.date_declaration, 'YYYY-MM-DD HH24:MI:SS') AS date_declaration,
+       i.symptomes, i.degre_urgence, i.statut_incident,
+       f.num_intervention,
+       (SELECT COUNT(*)::int FROM intervenants_fiches x
+         WHERE x.num_intervention = f.num_intervention) AS nb_intervenants,
+       COALESCE(
+         (SELECT json_agg(x.matricule_cadre ORDER BY x.date_affectation, x.matricule_cadre)
+            FROM intervenants_fiches x
+           WHERE x.num_intervention = f.num_intervention),
+         '[]'::json
+       ) AS intervenants
+  FROM pannes_incidents i
+  JOIN materiels m      ON m.code_materiel = i.code_materiel
+  JOIN localisations l  ON l.id_localisation = m.id_localisation
+  JOIN utilisateurs u   ON u.matricule = i.matricule_declarant
+  LEFT JOIN fiches_interventions f ON f.num_incident = i.num_incident`;
 
 export type IncidentVerrou = {
   num_incident: string;

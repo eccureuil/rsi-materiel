@@ -10,6 +10,7 @@ import authRoutes from './routes/authRoutes.js';
 import bonRoutes from './routes/bonRoutes.js';
 import dashboardRoutes from './routes/dashboardRoutes.js';
 import exportRoutes from './routes/exportRoutes.js';
+import { historiqueGlobalRouter, historiqueMaterielRouter } from './routes/historiqueRoutes.js';
 import incidentRoutes from './routes/incidentRoutes.js';
 import interventionRoutes from './routes/interventionRoutes.js';
 import localisationRoutes from './routes/localisationRoutes.js';
@@ -39,6 +40,8 @@ app.use('/api/utilisateurs', utilisateurRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/audit', auditRoutes);
 app.use('/api/localisations', localisationRoutes);
+app.use('/api/historique', historiqueGlobalRouter);
+app.use('/api/materiels', historiqueMaterielRouter); // doit précéder materielRoutes
 app.use('/api/materiels', materielRoutes);
 app.use('/api/affectations', affectationRoutes);
 app.use('/api/bons', bonRoutes);

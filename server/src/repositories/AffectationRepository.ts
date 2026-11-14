@@ -11,13 +11,19 @@ import type { StatutMateriel } from '../models/materiel.js';
 
 const SELECT_AFFECTATION = `
   SELECT a.id_affectation, a.code_materiel, m.marque, m.modele,
-         a.id_localisation, l.nom_service, l.code_bureau, l.ville,
+         a.id_localisation, l_dest.nom_service, l_dest.code_bureau, l_dest.ville,
+         a.id_localisation_origine,
+         l_orig.nom_service AS origine_nom_service,
+         l_orig.code_bureau AS origine_code_bureau,
+         l_orig.ville AS origine_ville,
          to_char(a.date_mouvement, 'YYYY-MM-DD HH24:MI:SS') AS date_mouvement,
-         a.type_mouvement, a.agent_beneficiaire, a.motif_mouvement, b.num_bon
+         a.type_mouvement, a.agent_beneficiaire, a.motif_mouvement,
+         b.num_bon
     FROM affectations a
-    JOIN materiels m     ON m.code_materiel = a.code_materiel
-    JOIN localisations l ON l.id_localisation = a.id_localisation
-    LEFT JOIN bons_decharge b ON b.id_affectation = a.id_affectation`;
+    JOIN materiels m            ON m.code_materiel = a.code_materiel
+    JOIN localisations l_dest   ON l_dest.id_localisation = a.id_localisation
+    LEFT JOIN localisations l_orig ON l_orig.id_localisation = a.id_localisation_origine
+    LEFT JOIN bons_decharge b   ON b.id_affectation = a.id_affectation`;
 
 type BonLigne = Omit<BonDecharge, 'destination' | 'origine'> & {
   dest_id: number;
@@ -140,17 +146,25 @@ export class AffectationRepository {
   }
 
   async insertAffectationTx(client: PoolClient, dto: CreateAffectationDto): Promise<number> {
-    const res = await client.query<{ id_affectation: number }>(
-      `INSERT INTO affectations
-         (code_materiel, id_localisation, type_mouvement, agent_beneficiaire, motif_mouvement)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id_affectation`,
-      [dto.code_materiel, dto.id_localisation, dto.type_mouvement, dto.agent_beneficiaire, dto.motif_mouvement],
-    );
-    const row = res.rows[0];
-    if (!row) throw new Error("Insertion de l'affectation sans retour.");
-    return row.id_affectation;
-  }
+  const res = await client.query<{ id_affectation: number }>(
+    `INSERT INTO affectations
+       (code_materiel, id_localisation, id_localisation_origine,
+        type_mouvement, agent_beneficiaire, motif_mouvement)
+     VALUES ($1, $2, $3, $4, $5, $6)
+     RETURNING id_affectation`,
+    [
+      dto.code_materiel,
+      dto.id_localisation,
+      
+      (dto as CreateAffectationDto & { id_localisation_origine?: number })
+        .id_localisation_origine ?? null,
+      dto.type_mouvement,
+      dto.agent_beneficiaire,
+      dto.motif_mouvement ?? null,
+    ],
+  );
+  return res.rows[0]!.id_affectation;
+}
 
   async updateMaterielTx(
     client: PoolClient,

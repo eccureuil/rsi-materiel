@@ -8,6 +8,8 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import Modal from '@/components/Modal';
 import { Champ, Input } from '@/components/FormControls';
 import type { Localisation, LocalisationInput } from '@/types/api';
+import { SkeletonTableau } from '@/components/Skeleton';
+import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 
 interface Formulaire { nom_service: string; code_bureau: string; ville: string; }
 const FORM_VIDE: Formulaire = { nom_service: '', code_bureau: '', ville: '' };
@@ -117,9 +119,22 @@ export default function GestionLocalisations() {
       </div>
 
       <div className="card overflow-hidden">
-        {chargement && <p className="p-4 text-sm text-slate-500">Chargement…</p>}
-        {!chargement && filtrees.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune localisation.</p>}
-        {!chargement && filtrees.length > 0 && (
+        {chargement ? (
+          <SkeletonTableau lignes={5} colonnes={5} />
+        ) : filtrees.length === 0 ? (
+          <EmptyState
+            icone={recherche.trim() !== '' ? <IconesEmpty.Recherche /> : <IconesEmpty.Boite />}
+            titre={recherche.trim() !== '' ? 'Aucune localisation trouvee' : 'Aucune localisation'}
+            description={
+              recherche.trim() !== ''
+                ? 'Aucune localisation ne correspond a votre recherche.'
+                : 'Creez votre premiere localisation pour affecter des materiaux.'
+            }
+            ctaLabel={recherche.trim() !== '' ? undefined : '+ Nouvelle localisation'}
+            ctaOnClick={recherche.trim() !== '' ? () => setRecherche('') : ouvrirCreation}
+            filtreActif={recherche.trim() !== ''}
+          />
+        ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>

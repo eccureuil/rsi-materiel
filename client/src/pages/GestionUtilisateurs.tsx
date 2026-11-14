@@ -14,6 +14,8 @@ import { validerMotDePasse } from '@/utils/motDePasse';
 import type {
   Role, StatutUtilisateur, UtilisateurComplet, UtilisateurCreateInput, UtilisateurUpdateInput,
 } from '@/types/api';
+import { SkeletonTableau } from '@/components/Skeleton';
+import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 
 const ROLES: Role[] = ['ADMINISTRATEUR', 'CADRE_MAINTENANCE'];
 
@@ -55,6 +57,7 @@ export default function GestionUtilisateurs() {
   const [q, setQ] = useState('');
   const [filtreRole, setFiltreRole] = useState<'' | Role>('');
   const [filtreStatut, setFiltreStatut] = useState<'' | StatutUtilisateur>('');
+  const filtresActifs = q.trim() !== '' || filtreRole !== '' || filtreStatut !== '';
 
   const [modalCreation, setModalCreation] = useState(false);
   const [modalEdition, setModalEdition] = useState<UtilisateurComplet | null>(null);
@@ -230,11 +233,22 @@ export default function GestionUtilisateurs() {
       </div>
 
       <div className="card overflow-hidden">
-        {chargement && <p className="p-4 text-sm text-slate-500">Chargement...</p>}
-        {!chargement && utilisateurs.length === 0 && (
-          <p className="p-4 text-sm text-slate-500">Aucun utilisateur.</p>
-        )}
-        {!chargement && utilisateurs.length > 0 && (
+        {chargement ? (
+          <SkeletonTableau lignes={5} colonnes={7} />
+        ) : utilisateurs.length === 0 ? (
+          <EmptyState
+            icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Utilisateur />}
+            titre={filtresActifs ? 'Aucun utilisateur ne correspond' : 'Aucun utilisateur'}
+            description={
+              filtresActifs
+                ? 'Changez de role ou de statut pour elargir la recherche.'
+                : 'Creez le premier compte administrateur ou cadre.'
+            }
+            ctaLabel={filtresActifs ? undefined : '+ Nouveau compte'}
+            ctaOnClick={filtresActifs ? () => { setQ(''); setFiltreRole(''); setFiltreStatut(''); } : ouvrirCreation}
+            filtreActif={filtresActifs}
+          />
+        ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>

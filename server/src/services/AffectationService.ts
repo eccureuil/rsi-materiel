@@ -49,7 +49,7 @@ export class AffectationService {
     return affectation;
   }
 
-  async creer(dto: CreateAffectationDto): Promise<{ affectation: Affectation; bon: BonDecharge }> {
+  async creer(dto: CreateAffectationDto): Promise<{ affectation: Affectation; bon: BonDecharge | null }> {
     const { idAffectation, numBon } = await withTransaction(async (client) => {
       const materiel = await this.repo.lockMaterielTx(client, dto.code_materiel);
       if (!materiel) throw new AppError(404, 'Matériel introuvable.');
@@ -68,25 +68,37 @@ export class AffectationService {
         throw new AppError(409, 'Le matériel se trouve déjà dans cette localisation.');
       }
 
-      const id = await this.repo.insertAffectationTx(client, dto);
+      const id = await this.repo.insertAffectationTx(client, {
+        ...dto,
+        id_localisation_origine: materiel.id_localisation,
+      });
       await this.repo.updateMaterielTx(
         client,
         dto.code_materiel,
         dto.id_localisation,
         regle.apres ?? materiel.statut_materiel,
       );
-      const num = await this.repo.insertBonTx(client, id);
+
+      // Génération du bon seulement si l'utilisateur le demande explicitement (défaut : non)
+      let num: string | null = null;
+      if (dto.generer_bon === true) {
+        num = await this.repo.insertBonTx(client, id);
+      }
       return { idAffectation: id, numBon: num };
     });
 
     // Génération du PDF après validation de la transaction : un échec ne doit pas annuler le mouvement
     // (le fichier sera régénéré au premier téléchargement).
-    try {
-      await this.bons.genererEtStocker(numBon);
-    } catch (err) {
-      console.error(`Échec de génération du PDF ${numBon} :`, err);
+    if (numBon) {
+      try {
+        await this.bons.genererEtStocker(numBon);
+      } catch (err) {
+        console.error(`Échec de génération du PDF ${numBon} :`, err);
+      }
     }
 
-    return { affectation: await this.obtenir(idAffectation), bon: await this.bons.obtenir(numBon) };
+    const affectation = await this.obtenir(idAffectation);
+    const bon = numBon ? await this.bons.obtenir(numBon) : null;
+    return { affectation, bon };
   }
 }

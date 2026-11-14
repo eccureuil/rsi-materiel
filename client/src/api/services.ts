@@ -263,3 +263,43 @@ export function urlPdfBon(bon: BonDecharge): string | null {
   if (!bon.chemin_fichier_pdf) return null;
   return `http://localhost:3000/api/bons/${bon.num_bon}/pdf`;
 }
+// ---------- Historique ----------
+import type {
+  FiltresHistoriqueGlobal,
+  FiltresHistoriqueMateriel,
+  HistoriqueMateriel,
+  PageEvenements,
+} from '@/types/historique';
+
+export async function obtenirHistoriqueMateriel(
+  code: string,
+  filtres: FiltresHistoriqueMateriel = {},
+): Promise<HistoriqueMateriel> {
+  const params: Record<string, string> = {};
+  if (filtres.types && filtres.types.length > 0) params.types = filtres.types.join(',');
+  if (filtres.du) params.du = filtres.du;
+  if (filtres.au) params.au = filtres.au;
+  if (filtres.ordre) params.ordre = filtres.ordre;
+
+  const { data } = await api.get<HistoriqueMateriel>(
+    `/materiels/${code}/historique`,
+    { params },
+  );
+  return data;
+}
+
+export async function listerHistorique(
+  filtres: FiltresHistoriqueGlobal = {},
+): Promise<PageEvenements> {
+  const params: Record<string, string | number> = {};
+  if (filtres.code_materiel) params.code_materiel = filtres.code_materiel;
+  if (filtres.types && filtres.types.length > 0) params.types = filtres.types.join(',');
+  if (filtres.du) params.du = filtres.du;
+  if (filtres.au) params.au = filtres.au;
+  if (filtres.ordre) params.ordre = filtres.ordre;
+  if (filtres.page) params.page = filtres.page;
+  if (filtres.limit) params.limit = filtres.limit;
+
+  const { data } = await api.get<PageEvenements>('/historique', { params });
+  return data;
+}

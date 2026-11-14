@@ -10,6 +10,10 @@ import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 import { Champ, Input } from '@/components/FormControls';
 import type { Piece, PieceInput } from '@/types/api';
+import { useDebounce } from '@/hooks/useDebounce';
+import { useSearchParams } from 'react-router-dom';
+import { SkeletonTableau } from '@/components/Skeleton';
+import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 
 interface Formulaire {
   ref_piece: string;
@@ -30,8 +34,11 @@ export default function StockPieces() {
   const [totalPages, setTotalPages] = useState(1);
   const [chargement, setChargement] = useState(false);
 
-  const [q, setQ] = useState('');
-  const [sousSeuil, setSousSeuil] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [q, setQ] = useState(searchParams.get('q') ?? '');
+  const qDebounce = useDebounce(q, 300);
+  const [sousSeuil, setSousSeuil] = useState(searchParams.get('sous_seuil') === 'true');
+  const filtresActifs = q.trim() !== '' || sousSeuil;
 
   const [modal, setModal] = useState<ModalType>(null);
   const [cible, setCible] = useState<Piece | null>(null);
@@ -44,15 +51,18 @@ export default function StockPieces() {
     setChargement(true);
     try {
       const res = await listerPieces({
-        q: q || undefined,
+        q: qDebounce.trim() || undefined,
         sous_seuil: sousSeuil ? true : undefined,
         page, limit: 20,
       });
       setPieces(res.items);
       setTotalPages(res.totalPages);
-    } catch (err) { toast.erreur('Chargement impossible', extraireMessageErreur(err)); }
-    finally { setChargement(false); }
-  }, [q, sousSeuil, page, toast]);
+    } catch (err) {
+      toast.erreur('Chargement impossible', extraireMessageErreur(err));
+    } finally {
+      setChargement(false);
+    }
+  }, [qDebounce, sousSeuil, page, toast]);
 
   useEffect(() => { void charger(); }, [charger]);
 
@@ -161,9 +171,22 @@ export default function StockPieces() {
       </div>
 
       <div className="card overflow-hidden">
-        {chargement && <p className="p-4 text-sm text-slate-500">Chargement…</p>}
-        {!chargement && pieces.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune pièce.</p>}
-        {!chargement && pieces.length > 0 && (
+        {chargement ? (
+          <SkeletonTableau lignes={6} colonnes={6} />
+        ) : pieces.length === 0 ? (
+          <EmptyState
+            icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Boite />}
+            titre={filtresActifs ? 'Aucune piece ne correspond' : 'Aucune piece en stock'}
+            description={
+              filtresActifs
+                ? 'Elargissez la recherche ou desactivez "Uniquement les pieces en alerte".'
+                : 'Ajoutez vos premieres pieces detachees pour suivre le stock.'
+            }
+            ctaLabel={filtresActifs ? undefined : '+ Nouvelle piece'}
+            ctaOnClick={filtresActifs ? () => { setQ(''); setSousSeuil(false); } : ouvrirCreation}
+            filtreActif={filtresActifs}
+          />
+        ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>

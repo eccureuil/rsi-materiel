@@ -14,6 +14,9 @@ import { Champ, Input, Select, Textarea } from '@/components/FormControls';
 import type {
   Imputation, Intervention, Piece, StatutMateriel, TypeMaintenance,
 } from '@/types/api';
+import { useSearchParams } from 'react-router-dom';
+import { SkeletonTableau } from '@/components/Skeleton';
+import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 
 const TYPES_MAINT: TypeMaintenance[] = ['CORRECTIVE', 'PREVENTIVE'];
 const STATUTS_FINAUX: StatutMateriel[] = ['SERVICE', 'PANNE', 'REFORME'];
@@ -29,9 +32,11 @@ export default function Interventions() {
   const [totalPages, setTotalPages] = useState(1);
   const [chargement, setChargement] = useState(false);
 
-  const [filtreType, setFiltreType] = useState('');
-  const [filtreTerminee, setFiltreTerminee] = useState('');
-  const [mesInterventions, setMesInterventions] = useState(false);
+  const [searchParams] = useSearchParams();
+  const [filtreType, setFiltreType] = useState(searchParams.get('type_maintenance') ?? '');
+  const [filtreTerminee, setFiltreTerminee] = useState(searchParams.get('terminee') ?? '');
+  const [mesInterventions, setMesInterventions] = useState(searchParams.get('mes_interventions') === 'true');
+  const filtresActifs = filtreType !== '' || filtreTerminee !== '' || mesInterventions;
 
   const [fiche, setFiche] = useState<Intervention | null>(null);
   const [imputations, setImputations] = useState<Imputation[]>([]);
@@ -191,9 +196,23 @@ export default function Interventions() {
       </div>
 
       <div className="card overflow-hidden">
-        {chargement && <p className="p-4 text-sm text-slate-500">Chargement…</p>}
-        {!chargement && interventions.length === 0 && <p className="p-4 text-sm text-slate-500">Aucune intervention.</p>}
-        {!chargement && interventions.length > 0 && (
+        {chargement ? (
+          <SkeletonTableau lignes={5} colonnes={7} />
+        ) : interventions.length === 0 ? (
+          <EmptyState
+            icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Outil />}
+            titre={filtresActifs ? 'Aucune intervention ne correspond' : 'Aucune intervention en cours'}
+            description={
+              filtresActifs
+                ? 'Essayez d\'elargir vos criteres.'
+                : 'Les interventions apparaitront ici des qu\'un cadre prendra en charge une panne.'
+            }
+            ctaLabel={filtresActifs ? undefined : 'Voir les declarations de pannes'}
+            lienTo={filtresActifs ? undefined : '/pannes'}
+            ctaOnClick={filtresActifs ? () => { setFiltreType(''); setFiltreTerminee(''); setMesInterventions(false); } : undefined}
+            filtreActif={filtresActifs}
+          />
+        ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>

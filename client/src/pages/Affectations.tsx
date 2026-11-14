@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import {
   creerAffectation, listerAffectations, listerLocalisations,
   listerMateriels, urlPdfBon,
@@ -8,6 +8,9 @@ import { useToast } from '@/components/Toast';
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 import Badge from '@/components/Badge';
+import EmptyState, { IconesEmpty } from '@/components/EmptyState';
+import { SkeletonTableau } from '@/components/Skeleton';
+import { useDebounce } from '@/hooks/useDebounce';
 import { Champ, Input, Select, Textarea } from '@/components/FormControls';
 import {
   TYPES_MOUVEMENT,
@@ -21,6 +24,7 @@ interface Formulaire {
   id_localisation: string;
   agent_beneficiaire: string;
   motif_mouvement: string;
+  generer_bon: boolean;
 }
 const FORM_VIDE: Formulaire = {
   code_materiel: '',
@@ -28,6 +32,7 @@ const FORM_VIDE: Formulaire = {
   id_localisation: '',
   agent_beneficiaire: '',
   motif_mouvement: '',
+  generer_bon: false,
 };
 
 export default function Affectations() {
@@ -40,6 +45,7 @@ export default function Affectations() {
 
   const [filtreCode, setFiltreCode] = useState('');
   const [filtreType, setFiltreType] = useState<'' | TypeMouvement>('');
+  const filtreCodeDebounce = useDebounce(filtreCode, 300);
 
   const [modalOuvert, setModalOuvert] = useState(false);
   const [form, setForm] = useState<Formulaire>(FORM_VIDE);
@@ -50,11 +56,17 @@ export default function Affectations() {
 
   const [bonGenere, setBonGenere] = useState<BonDecharge | null>(null);
 
+  // Materiel actuellement selectionne dans le formulaire (pour afficher l'origine)
+  const materielSelectionne = useMemo(
+    () => materiels.find((m) => m.code_materiel === form.code_materiel) ?? null,
+    [materiels, form.code_materiel],
+  );
+
   const charger = useCallback(async () => {
     setChargement(true);
     try {
       const res = await listerAffectations({
-        code_materiel: filtreCode.trim() || undefined,
+        code_materiel: filtreCodeDebounce.trim() || undefined,
         type_mouvement: filtreType || undefined,
         page, limit: 20,
       });
@@ -65,7 +77,7 @@ export default function Affectations() {
     } finally {
       setChargement(false);
     }
-  }, [filtreCode, filtreType, page, toast]);
+  }, [filtreCodeDebounce, filtreType, page, toast]);
 
   useEffect(() => { void charger(); }, [charger]);
 
@@ -94,12 +106,16 @@ export default function Affectations() {
         id_localisation: Number(form.id_localisation),
         agent_beneficiaire: form.agent_beneficiaire.trim(),
         motif_mouvement: form.motif_mouvement.trim() || undefined,
+        generer_bon: form.generer_bon,
       });
-      toast.succes(
-        'Mouvement enregistre',
-        `${form.type_mouvement} : ${form.code_materiel} - bon ${res.bon.num_bon}.`,
-      );
-      setBonGenere(res.bon);
+      if (res.bon) {
+        toast.succes('Mouvement enregistre avec bon',
+          `${form.type_mouvement} : ${form.code_materiel} - bon ${res.bon.num_bon}.`);
+        setBonGenere(res.bon);
+      } else {
+        toast.succes('Mouvement enregistre',
+          `${form.type_mouvement} : ${form.code_materiel} (sans bon).`);
+      }
       setModalOuvert(false);
       await charger();
     } catch (err) {
@@ -110,6 +126,7 @@ export default function Affectations() {
   };
 
   const urlPdf = bonGenere ? urlPdfBon(bonGenere) : null;
+  const filtresActifs = filtreCode.trim() !== '' || filtreType !== '';
 
   return (
     <div className="space-y-4">
@@ -129,15 +146,28 @@ export default function Affectations() {
       </div>
 
       <div className="card overflow-hidden">
-        {chargement && <p className="p-4 text-sm text-slate-500">Chargement...</p>}
-        {!chargement && affectations.length === 0 && (
-          <p className="p-4 text-sm text-slate-500">Aucun mouvement enregistre.</p>
-        )}
-        {!chargement && affectations.length > 0 && (
+        {chargement ? (
+          <SkeletonTableau lignes={6} colonnes={8} />
+        ) : affectations.length === 0 ? (
+          <EmptyState
+            icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Boite />}
+            titre={filtresActifs ? 'Aucun mouvement ne correspond' : 'Aucun mouvement enregistre'}
+            description={
+              filtresActifs
+                ? 'Ajustez le code materiel ou le type de mouvement.'
+                : 'Enregistrez la premiere affectation, mutation ou restitution.'
+            }
+            ctaLabel={filtresActifs ? undefined : '+ Nouveau mouvement'}
+            ctaOnClick={filtresActifs
+              ? () => { setFiltreCode(''); setFiltreType(''); }
+              : () => void ouvrirCreation()}
+            filtreActif={filtresActifs}
+          />
+        ) : (
           <table className="min-w-full divide-y divide-slate-200 text-sm">
             <thead className="bg-slate-50">
               <tr>
-                {['Date', 'Materiel', 'Type', 'Beneficiaire', 'Destination', 'Bon', 'Motif'].map((h) => (
+                {['Date', 'Materiel', 'Type', 'Origine', 'Destination', 'Beneficiaire', 'Bon', 'Motif'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>
                 ))}
               </tr>
@@ -151,8 +181,21 @@ export default function Affectations() {
                     <p className="text-xs text-slate-500">{a.marque} {a.modele}</p>
                   </td>
                   <td className="px-4 py-3"><Badge valeur={a.type_mouvement} /></td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {a.origine_nom_service
+                      ? <>
+                          {a.origine_nom_service}
+                          {a.origine_code_bureau ? ` (${a.origine_code_bureau})` : ''}
+                          {a.origine_ville ? <span className="block text-xs text-slate-500">{a.origine_ville}</span> : null}
+                        </>
+                      : <span className="text-slate-400">-</span>}
+                  </td>
+                  <td className="px-4 py-3 text-slate-700">
+                    {a.nom_service}
+                    {a.code_bureau ? ` (${a.code_bureau})` : ''}
+                    {a.ville ? <span className="block text-xs text-slate-500">{a.ville}</span> : null}
+                  </td>
                   <td className="px-4 py-3">{a.agent_beneficiaire}</td>
-                  <td className="px-4 py-3">{a.nom_service}{a.code_bureau ? ` (${a.code_bureau})` : ''}</td>
                   <td className="px-4 py-3 font-mono text-xs">{a.num_bon ?? '-'}</td>
                   <td className="max-w-xs truncate px-4 py-3 text-xs text-slate-600">{a.motif_mouvement ?? '-'}</td>
                 </tr>
@@ -164,6 +207,7 @@ export default function Affectations() {
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
+      {/* Modal creation */}
       <Modal ouvert={modalOuvert} titre="Nouveau mouvement"
         onFermer={() => setModalOuvert(false)}
         piedDePage={
@@ -186,6 +230,21 @@ export default function Affectations() {
               ))}
             </Select>
           </Champ>
+
+          {materielSelectionne && (
+            <div className="rounded-md bg-slate-50 p-3 text-sm ring-1 ring-slate-200">
+              <p className="text-slate-700">
+                <span className="font-semibold">Origine actuelle :</span>{' '}
+                {materielSelectionne.nom_service ?? `Localisation #${materielSelectionne.id_localisation}`}
+                {materielSelectionne.code_bureau ? ` (${materielSelectionne.code_bureau})` : ''}
+                {materielSelectionne.ville ? ` - ${materielSelectionne.ville}` : ''}
+              </p>
+              <p className="mt-1 text-xs text-slate-500">
+                Statut : {materielSelectionne.statut_materiel} - categorie : {materielSelectionne.type_categorie}
+              </p>
+            </div>
+          )}
+
           <Champ label="Type de mouvement *">
             <Select required value={form.type_mouvement}
               onChange={(e) => setForm({ ...form, type_mouvement: e.target.value as TypeMouvement })}>
@@ -195,6 +254,7 @@ export default function Affectations() {
           <p className="text-xs text-slate-500">
             Regles : AFFECTATION (Stock - Service) - MUTATION (Service, autre localisation) - RESTITUTION (Service - Stock).
           </p>
+
           <Champ label="Localisation destination *">
             <Select required value={form.id_localisation}
               onChange={(e) => setForm({ ...form, id_localisation: e.target.value })}>
@@ -214,9 +274,16 @@ export default function Affectations() {
             <Textarea rows={3} maxLength={1000} value={form.motif_mouvement}
               onChange={(e) => setForm({ ...form, motif_mouvement: e.target.value })} />
           </Champ>
+          <label className="flex items-center gap-2 text-sm text-slate-700">
+            <input type="checkbox" checked={form.generer_bon}
+              onChange={(e) => setForm({ ...form, generer_bon: e.target.checked })} />
+            Generer un bon de decharge
+            <span className="text-xs text-slate-500">(optionnel)</span>
+          </label>
         </form>
       </Modal>
 
+      {/* Modal recap bon genere */}
       <Modal ouvert={bonGenere !== null}
         titre={bonGenere ? `Bon de decharge ${bonGenere.num_bon}` : ''}
         onFermer={() => setBonGenere(null)}

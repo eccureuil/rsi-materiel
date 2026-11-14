@@ -20,6 +20,10 @@ export type Affectation = {
   nom_service: string;
   code_bureau: string | null;
   ville: string;
+  id_localisation_origine: number | null;
+  origine_nom_service: string | null;
+  origine_code_bureau: string | null;
+  origine_ville: string | null;
   date_mouvement: string;
   type_mouvement: TypeMouvement;
   agent_beneficiaire: string;
@@ -55,6 +59,7 @@ export const createAffectationSchema = z.object({
   agent_beneficiaire: z.string().trim().min(1, "Le nom de l'agent est requis.").max(100),
   motif_mouvement: texteOptionnel(1000),
   generer_bon: z.boolean().optional(),
+  id_localisation_origine: z.number().int().positive().optional(),
 });
 export type CreateAffectationDto = z.infer<typeof createAffectationSchema>;
 

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { obtenirDashboard } from '@/api/services';
 import { extraireMessageErreur } from '@/api/client';
 import Alert from '@/components/Alert';
@@ -6,6 +7,7 @@ import Badge from '@/components/Badge';
 import type {
   DashboardStats, DegreUrgence, StatutIncident, StatutMateriel, TypeCategorie,
 } from '@/types/api';
+import { SkeletonLigne } from '@/components/Skeleton';
 
 const STATUTS_MATERIEL: StatutMateriel[] = ['STOCK', 'SERVICE', 'PANNE', 'MAINTENANCE', 'REFORME'];
 const CATEGORIES: TypeCategorie[] = ['BUREAUTIQUE', 'OPERATIONNEL'];
@@ -55,58 +57,62 @@ export default function Dashboard() {
 
   const heureMaj = stats?.genere_le
     ? new Date(stats.genere_le).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })
-    : '—';
+    : '-';
 
   return (
     <div className="space-y-6">
-      {/* En-tête */}
       <div className="flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-semibold text-slate-900">Tableau de bord</h1>
           <p className="mt-1 text-sm capitalize text-slate-500">{dateFormatter.format(new Date())}</p>
         </div>
         <div className="flex items-center gap-3 text-sm text-slate-500">
-          <span>Dernière mise à jour : {heureMaj}</span>
+          <span>Derniere mise a jour : {heureMaj}</span>
           <button className="btn-secondary" onClick={() => void charger()} disabled={chargement}>
-            {chargement ? 'Actualisation…' : 'Rafraîchir'}
+            {chargement ? 'Actualisation...' : 'Rafraichir'}
           </button>
         </div>
       </div>
 
       {erreur && <Alert type="erreur" message={erreur} onFermer={() => setErreur(null)} />}
 
-      {/* KPI cards */}
+      {/* KPI cards cliquables */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <CarteKPI titre="Matériels" valeur={stats?.materiels.total ?? 0}
-          sousTitre="dans l’inventaire"
+        <CarteKPI to="/materiels" titre="Materiels" valeur={stats?.materiels.total ?? 0}
+          sousTitre="dans l'inventaire"
           couleur="from-asecna-bleu to-asecna-clair"
           icone={<IconeOrdinateur />} chargement={chargement} />
-        <CarteKPI titre="Incidents ouverts" valeur={stats?.incidents.ouverts ?? 0}
-          sousTitre="à traiter"
+        <CarteKPI to="/materiels?statut_materiel=SERVICE" titre="En service"
+          valeur={stats?.materiels.par_statut.SERVICE ?? 0}
+          sousTitre={`sur ${stats?.materiels.total ?? 0} materiel(s)`}
+          couleur="from-emerald-600 to-emerald-500"
+          icone={<IconeCoche />} chargement={chargement} />
+        <CarteKPI to="/pannes?statut_incident=DECLARE" titre="Incidents ouverts"
+          valeur={stats?.incidents.ouverts ?? 0}
+          sousTitre="a traiter"
           couleur="from-amber-500 to-amber-400"
           icone={<IconeAlerte />} chargement={chargement} />
-        <CarteKPI titre="Interventions en cours" valeur={stats?.interventions.en_cours ?? 0}
-          sousTitre={`${stats?.interventions.mes_en_cours ?? 0} miennes`}
-          couleur="from-indigo-600 to-indigo-500"
-          icone={<IconeOutil />} chargement={chargement} />
-        <CarteKPI titre="Pièces en alerte" valeur={stats?.stock.en_alerte ?? 0}
+        <CarteKPI to="/stock?sous_seuil=true" titre="Pieces en alerte"
+          valeur={stats?.stock.en_alerte ?? 0}
           sousTitre={`${stats?.stock.en_rupture ?? 0} en rupture`}
           couleur="from-red-600 to-red-500"
           icone={<IconeBoite />} chargement={chargement} />
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-3">
-        {/* Répartition matériels */}
+        {/* Repartition materiaux */}
         <section className="card p-5 lg:col-span-2">
           <header className="mb-4 flex items-center justify-between">
-            <h2 className="text-base font-semibold text-slate-900">Répartition des matériels</h2>
-            <span className="text-sm text-slate-500">{stats?.materiels.total ?? 0} total</span>
+            <h2 className="text-base font-semibold text-slate-900">Repartition des materiels</h2>
+            <Link to="/materiels" className="text-sm text-asecna-bleu hover:underline">
+              {stats?.materiels.total ?? 0} total
+            </Link>
           </header>
 
           {chargement || !stats ? (
             <Squelette lignes={5} />
           ) : stats.materiels.total === 0 ? (
-            <p className="text-sm text-slate-500">Aucun matériel enregistré.</p>
+            <p className="text-sm text-slate-500">Aucun materiel enregistre.</p>
           ) : (
             <>
               <div className="mb-5 flex h-3 w-full overflow-hidden rounded-full bg-slate-100">
@@ -127,13 +133,16 @@ export default function Dashboard() {
                   const pct = stats.materiels.total === 0 ? 0 : Math.round((n / stats.materiels.total) * 100);
                   const c = COULEUR_STATUT[s];
                   return (
-                    <li key={s} className="flex items-center gap-3 rounded-md p-2 hover:bg-slate-50">
-                      <span className={`h-3 w-3 rounded-full ${c.barre}`} />
-                      <span className="flex-1 text-sm font-medium text-slate-700">{s}</span>
-                      <span className="text-sm text-slate-500">{n}</span>
-                      <span className={`rounded px-2 py-0.5 text-xs font-semibold ${c.bg} ${c.texte}`}>
-                        {pct}%
-                      </span>
+                    <li key={s}>
+                      <Link to={`/materiels?statut_materiel=${s}`}
+                        className="flex items-center gap-3 rounded-md p-2 hover:bg-slate-50">
+                        <span className={`h-3 w-3 rounded-full ${c.barre}`} />
+                        <span className="flex-1 text-sm font-medium text-slate-700">{s}</span>
+                        <span className="text-sm text-slate-500">{n}</span>
+                        <span className={`rounded px-2 py-0.5 text-xs font-semibold ${c.bg} ${c.texte}`}>
+                          {pct}%
+                        </span>
+                      </Link>
                     </li>
                   );
                 })}
@@ -141,16 +150,17 @@ export default function Dashboard() {
 
               <div className="mt-5 border-t border-slate-100 pt-4">
                 <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
-                  Par catégorie
+                  Par categorie
                 </p>
                 <div className="grid grid-cols-2 gap-3">
                   {CATEGORIES.map((c) => (
-                    <div key={c} className="rounded-md bg-slate-50 p-3">
+                    <Link key={c} to={`/materiels?type_categorie=${c}`}
+                      className="rounded-md bg-slate-50 p-3 hover:bg-slate-100">
                       <p className="text-xs text-slate-500">{c}</p>
                       <p className="mt-1 text-xl font-bold text-slate-900">
                         {stats.materiels.par_categorie[c]}
                       </p>
-                    </div>
+                    </Link>
                   ))}
                 </div>
               </div>
@@ -162,7 +172,9 @@ export default function Dashboard() {
         <section className="card p-5">
           <header className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-900">Incidents ouverts</h2>
-            <span className="text-sm text-slate-500">{stats?.incidents.ouverts ?? 0}</span>
+            <Link to="/pannes?statut_incident=DECLARE" className="text-sm text-asecna-bleu hover:underline">
+              {stats?.incidents.ouverts ?? 0}
+            </Link>
           </header>
           {chargement || !stats ? (
             <Squelette lignes={4} />
@@ -170,9 +182,12 @@ export default function Dashboard() {
             <>
               <ul className="space-y-2">
                 {URGENCES.map((u) => (
-                  <li key={u} className={`flex items-center justify-between rounded-md px-3 py-2 ring-1 ${COULEUR_URGENCE[u]}`}>
-                    <span className="text-sm font-medium">{u}</span>
-                    <span className="text-lg font-bold">{stats.incidents.ouverts_par_urgence[u]}</span>
+                  <li key={u}>
+                    <Link to={`/pannes?degre_urgence=${u}`}
+                      className={`flex items-center justify-between rounded-md px-3 py-2 ring-1 hover:opacity-90 ${COULEUR_URGENCE[u]}`}>
+                      <span className="text-sm font-medium">{u}</span>
+                      <span className="text-lg font-bold">{stats.incidents.ouverts_par_urgence[u]}</span>
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -183,9 +198,12 @@ export default function Dashboard() {
                 </p>
                 <ul className="space-y-1 text-sm">
                   {STATUTS_INCIDENT.map((s) => (
-                    <li key={s} className="flex items-center justify-between py-1">
-                      <span className="text-slate-600">{s.replace(/_/g, ' ')}</span>
-                      <span className="font-semibold text-slate-900">{stats.incidents.par_statut[s]}</span>
+                    <li key={s}>
+                      <Link to={`/pannes?statut_incident=${s}`}
+                        className="flex items-center justify-between rounded-md py-1 px-2 hover:bg-slate-50">
+                        <span className="text-slate-600">{s.replace(/_/g, ' ')}</span>
+                        <span className="font-semibold text-slate-900">{stats.incidents.par_statut[s]}</span>
+                      </Link>
                     </li>
                   ))}
                 </ul>
@@ -195,7 +213,7 @@ export default function Dashboard() {
         </section>
       </div>
 
-      {/* Évolution mensuelle */}
+      {/* Evolution mensuelle (non cliquable : pas de filtre par mois cote backend) */}
       <section className="card p-5">
         <header className="mb-4 flex items-center justify-between">
           <h2 className="text-base font-semibold text-slate-900">Incidents par mois</h2>
@@ -204,7 +222,7 @@ export default function Dashboard() {
         {chargement || !stats ? (
           <Squelette lignes={3} />
         ) : stats.incidents.par_mois.length === 0 ? (
-          <p className="text-sm text-slate-500">Aucune donnée mensuelle.</p>
+          <p className="text-sm text-slate-500">Aucune donnee mensuelle.</p>
         ) : (
           <GraphiqueBarres data={stats.incidents.par_mois} />
         )}
@@ -218,13 +236,17 @@ export default function Dashboard() {
             <Squelette lignes={3} />
           ) : (
             <ul className="space-y-3 text-sm">
-              <LigneStat label="En cours" valeur={stats.interventions.en_cours} accent="text-indigo-600" />
-              <LigneStat label="Terminées (30 j)" valeur={stats.interventions.terminees_30_jours} accent="text-emerald-600" />
-              <LigneStat label="Mes interventions en cours" valeur={stats.interventions.mes_en_cours} accent="text-slate-900" />
+              <LigneStatLien to="/interventions?terminee=false" label="En cours"
+                valeur={stats.interventions.en_cours} accent="text-indigo-600" />
+              <LigneStatLien to="/interventions?terminee=true" label="Terminees (30 j)"
+                valeur={stats.interventions.terminees_30_jours} accent="text-emerald-600" />
+              <LigneStatLien to="/interventions?mes_interventions=true&terminee=false"
+                label="Mes interventions en cours"
+                valeur={stats.interventions.mes_en_cours} accent="text-slate-900" />
               <LigneStat
-                label="Durée moyenne"
+                label="Duree moyenne"
                 valeur={stats.interventions.duree_moyenne_heures === null
-                  ? '—'
+                  ? '-'
                   : `${stats.interventions.duree_moyenne_heures.toFixed(1)} h`}
                 accent="text-slate-900"
               />
@@ -236,7 +258,9 @@ export default function Dashboard() {
         <section className="card p-5 lg:col-span-2">
           <header className="mb-4 flex items-center justify-between">
             <h2 className="text-base font-semibold text-slate-900">Incidents prioritaires</h2>
-            <span className="text-sm text-slate-500">{stats?.incidents.recents_prioritaires.length ?? 0}</span>
+            <Link to="/pannes?degre_urgence=CRITIQUE" className="text-sm text-asecna-bleu hover:underline">
+              {stats?.incidents.recents_prioritaires.length ?? 0}
+            </Link>
           </header>
           {chargement || !stats ? (
             <Squelette lignes={4} />
@@ -245,19 +269,22 @@ export default function Dashboard() {
           ) : (
             <ul className="divide-y divide-slate-100">
               {stats.incidents.recents_prioritaires.map((i) => (
-                <li key={i.num_incident} className="flex flex-wrap items-center justify-between gap-3 py-3">
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-slate-900">
-                      {i.num_incident} — {i.code_materiel}
-                    </p>
-                    <p className="truncate text-xs text-slate-500">
-                      {i.marque ?? 'INCONNU'} {i.modele ?? ''} · {i.nom_service} · {i.date_declaration}
-                    </p>
-                  </div>
-                  <div className="flex flex-wrap gap-1">
-                    <Badge valeur={i.degre_urgence} />
-                    <Badge valeur={i.statut_incident} />
-                  </div>
+                <li key={i.num_incident}>
+                  <Link to={`/pannes?q=${encodeURIComponent(i.num_incident)}`}
+                    className="flex flex-wrap items-center justify-between gap-3 py-3 hover:bg-slate-50">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-slate-900">
+                        {i.num_incident} - {i.code_materiel}
+                      </p>
+                      <p className="truncate text-xs text-slate-500">
+                        {i.marque ?? 'INCONNU'} {i.modele ?? ''} - {i.nom_service} - {i.date_declaration}
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-1">
+                      <Badge valeur={i.degre_urgence} />
+                      <Badge valeur={i.statut_incident} />
+                    </div>
+                  </Link>
                 </li>
               ))}
             </ul>
@@ -268,25 +295,31 @@ export default function Dashboard() {
       {/* Stock */}
       <section className="card p-5">
         <header className="mb-4 flex flex-wrap items-center justify-between gap-2">
-          <h2 className="text-base font-semibold text-slate-900">Stock de pièces</h2>
+          <h2 className="text-base font-semibold text-slate-900">Stock de pieces</h2>
           <div className="flex gap-4 text-sm">
-            <span className="text-slate-500">Références : <b className="text-slate-900">{stats?.stock.total_references ?? 0}</b></span>
-            <span className="text-amber-700">En alerte : <b>{stats?.stock.en_alerte ?? 0}</b></span>
-            <span className="text-red-700">En rupture : <b>{stats?.stock.en_rupture ?? 0}</b></span>
+            <Link to="/stock" className="text-slate-500 hover:underline">
+              References : <b className="text-slate-900">{stats?.stock.total_references ?? 0}</b>
+            </Link>
+            <Link to="/stock?sous_seuil=true" className="text-amber-700 hover:underline">
+              En alerte : <b>{stats?.stock.en_alerte ?? 0}</b>
+            </Link>
+            <span className="text-red-700">
+              En rupture : <b>{stats?.stock.en_rupture ?? 0}</b>
+            </span>
           </div>
         </header>
 
         {chargement || !stats ? (
           <Squelette lignes={3} />
         ) : stats.stock.pieces_en_alerte.length === 0 ? (
-          <p className="text-sm text-slate-500">Toutes les pièces sont au-dessus du seuil.</p>
+          <p className="text-sm text-slate-500">Toutes les pieces sont au-dessus du seuil.</p>
         ) : (
           <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-3">
             {stats.stock.pieces_en_alerte.map((p) => {
               const rupture = p.quantite_en_stock === 0;
               return (
-                <div key={p.ref_piece}
-                  className={`rounded-md p-3 ring-1 ${
+                <Link key={p.ref_piece} to={`/stock?q=${encodeURIComponent(p.ref_piece)}`}
+                  className={`block rounded-md p-3 ring-1 hover:opacity-90 ${
                     rupture ? 'bg-red-50 ring-red-200' : 'bg-amber-50 ring-amber-200'
                   }`}>
                   <div className="flex items-start justify-between gap-2">
@@ -297,9 +330,9 @@ export default function Dashboard() {
                   </div>
                   <p className="mt-1 truncate text-xs text-slate-600">{p.designation}</p>
                   <p className="mt-1 text-xs text-slate-500">
-                    Stock : {p.quantite_en_stock} · Seuil : {p.seuil_minimum}
+                    Stock : {p.quantite_en_stock} - Seuil : {p.seuil_minimum}
                   </p>
-                </div>
+                </Link>
               );
             })}
           </div>
@@ -312,6 +345,7 @@ export default function Dashboard() {
 // ---------- Sous-composants ----------
 
 interface CarteKPIProps {
+  to: string;
   titre: string;
   valeur: number;
   sousTitre: string;
@@ -320,9 +354,10 @@ interface CarteKPIProps {
   chargement: boolean;
 }
 
-function CarteKPI({ titre, valeur, sousTitre, couleur, icone, chargement }: CarteKPIProps) {
+function CarteKPI({ to, titre, valeur, sousTitre, couleur, icone, chargement }: CarteKPIProps) {
   return (
-    <div className={`relative overflow-hidden rounded-xl bg-gradient-to-br ${couleur} p-5 text-white shadow-sm`}>
+    <Link to={to}
+      className={`relative block overflow-hidden rounded-xl bg-linear-to-br ${couleur} p-5 text-white shadow-sm transition-transform hover:scale-[1.02]`}>
       <div className="absolute -right-4 -top-4 h-20 w-20 rounded-full bg-white/10" />
       <div className="absolute -bottom-6 -right-6 h-24 w-24 rounded-full bg-white/5" />
       <div className="relative">
@@ -330,11 +365,11 @@ function CarteKPI({ titre, valeur, sousTitre, couleur, icone, chargement }: Cart
           {icone}<span>{titre}</span>
         </div>
         <p className="text-3xl font-bold leading-tight">
-          {chargement ? <span className="opacity-50">—</span> : valeur}
+          {chargement ? <span className="opacity-50">-</span> : valeur}
         </p>
         <p className="mt-1 text-xs opacity-80">{sousTitre}</p>
       </div>
-    </div>
+    </Link>
   );
 }
 
@@ -347,11 +382,22 @@ function LigneStat({ label, valeur, accent }: { label: string; valeur: string | 
   );
 }
 
+function LigneStatLien({ to, label, valeur, accent }: { to: string; label: string; valeur: string | number; accent: string }) {
+  return (
+    <li className="border-b border-slate-100 pb-2 last:border-0 last:pb-0">
+      <Link to={to} className="flex items-center justify-between hover:opacity-80">
+        <span className="text-slate-600">{label}</span>
+        <span className={`text-base font-semibold ${accent}`}>{valeur}</span>
+      </Link>
+    </li>
+  );
+}
+
 function Squelette({ lignes }: { lignes: number }) {
   return (
     <div className="space-y-2">
       {Array.from({ length: lignes }).map((_, idx) => (
-        <div key={idx} className="h-8 animate-pulse rounded-md bg-slate-100" />
+        <SkeletonLigne key={idx} largeur="w-full" />
       ))}
     </div>
   );
@@ -364,12 +410,14 @@ function GraphiqueBarres({ data }: { data: { mois: string; total: number }[] }) 
       {data.map((d) => {
         const h = Math.round((d.total / max) * 100);
         return (
-          <div key={d.mois} className="flex min-w-[36px] flex-1 flex-col items-center gap-1"
+          <div key={d.mois} className="flex min-w-9 flex-1 flex-col items-center gap-1"
             title={`${d.mois} : ${d.total}`}>
             <span className="text-[10px] font-medium text-slate-500">{d.total}</span>
             <div className="flex w-full flex-1 items-end">
-              <div className="w-full rounded-t bg-asecna-bleu/80 transition-all"
-                style={{ height: `${h}%`, minHeight: d.total > 0 ? 4 : 0 }} />
+              <div
+                className="w-full rounded-t bg-asecna-bleu/80 transition-all"
+                style={{ height: `${h}%`, minHeight: d.total > 0 ? 4 : 0 }}
+              />
             </div>
             <span className="text-[10px] text-slate-500">{d.mois}</span>
           </div>
@@ -379,12 +427,17 @@ function GraphiqueBarres({ data }: { data: { mois: string; total: number }[] }) 
   );
 }
 
-// ---------- Icônes ----------
-
 function IconeOrdinateur() {
   return (
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <rect x="2" y="4" width="20" height="14" rx="2" /><path d="M2 20h20" />
+    </svg>
+  );
+}
+function IconeCoche() {
+  return (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+      <path d="M20 6 9 17l-5-5" />
     </svg>
   );
 }
@@ -393,13 +446,6 @@ function IconeAlerte() {
     <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
       <path d="M12 9v4M12 17h.01" />
       <path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z" />
-    </svg>
-  );
-}
-function IconeOutil() {
-  return (
-    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-      <path d="M14.7 6.3a4 4 0 1 0 5 5l-9.4 9.4a2 2 0 1 1-2.8-2.8z" />
     </svg>
   );
 }
