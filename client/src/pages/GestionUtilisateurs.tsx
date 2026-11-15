@@ -7,17 +7,33 @@ import { extraireMessageErreur } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import BoutonCreation from '@/components/BoutonCreation';
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
-import { Champ, Input, Select } from '@/components/FormControls';
+import {
+  Champ, ChampRecherche, FormGrid, IconeStatut, IconeUtilisateur, Input, ResumeFiltres,
+  SectionFormulaire, SelectFiltre, type FiltreActif,
+} from '@/components/FormControls';
 import { validerMotDePasse } from '@/utils/motDePasse';
 import type {
   Role, StatutUtilisateur, UtilisateurComplet, UtilisateurCreateInput, UtilisateurUpdateInput,
 } from '@/types/api';
 import { SkeletonTableau } from '@/components/Skeleton';
+import { BoutonIcone } from '@/components/BoutonIcone';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
+import { EnteteTableau, Tableau } from '@/components/Tableau';
 
 const ROLES: Role[] = ['ADMINISTRATEUR', 'CADRE_MAINTENANCE'];
+
+const LIBELLE_ROLE: Record<Role, string> = {
+  ADMINISTRATEUR: 'Administrateur',
+  CADRE_MAINTENANCE: 'Cadre maintenance',
+};
+
+const LIBELLE_STATUT: Record<StatutUtilisateur, string> = {
+  ACTIF: 'Actif',
+  INACTIF: 'Inactif',
+};
 
 interface FormulaireCreation {
   matricule: string;
@@ -58,6 +74,28 @@ export default function GestionUtilisateurs() {
   const [filtreRole, setFiltreRole] = useState<'' | Role>('');
   const [filtreStatut, setFiltreStatut] = useState<'' | StatutUtilisateur>('');
   const filtresActifs = q.trim() !== '' || filtreRole !== '' || filtreStatut !== '';
+
+  const reinitialiserFiltres = () => {
+    setQ('');
+    setFiltreRole('');
+    setFiltreStatut('');
+    setPage(1);
+  };
+
+  const filtresResume: FiltreActif[] = [
+    ...(q.trim() ? [{
+      label: `Recherche : « ${q.trim()} »`,
+      onSupprimer: () => { setQ(''); setPage(1); },
+    }] : []),
+    ...(filtreRole ? [{
+      label: `Rôle : ${LIBELLE_ROLE[filtreRole]}`,
+      onSupprimer: () => { setFiltreRole(''); setPage(1); },
+    }] : []),
+    ...(filtreStatut ? [{
+      label: `Statut : ${LIBELLE_STATUT[filtreStatut]}`,
+      onSupprimer: () => { setFiltreStatut(''); setPage(1); },
+    }] : []),
+  ];
 
   const [modalCreation, setModalCreation] = useState(false);
   const [modalEdition, setModalEdition] = useState<UtilisateurComplet | null>(null);
@@ -213,23 +251,51 @@ export default function GestionUtilisateurs() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Gestion des utilisateurs</h1>
-        <button className="btn-primary" onClick={ouvrirCreation}>+ Nouveau compte</button>
+        <BoutonCreation libelle="Nouveau compte" onClick={ouvrirCreation} />
       </div>
 
-      <div className="card flex flex-wrap gap-3 p-4">
-        <Input placeholder="Rechercher (matricule, nom, prenom...)" value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }} className="max-w-xs" />
-        <Select value={filtreRole}
-          onChange={(e) => { setFiltreRole(e.target.value as '' | Role); setPage(1); }} className="max-w-xs">
-          <option value="">Tous roles</option>
-          {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-        </Select>
-        <Select value={filtreStatut}
-          onChange={(e) => { setFiltreStatut(e.target.value as '' | StatutUtilisateur); setPage(1); }} className="max-w-xs">
-          <option value="">Tous statuts</option>
-          <option value="ACTIF">ACTIF</option>
-          <option value="INACTIF">INACTIF</option>
-        </Select>
+      <div className="card">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <ChampRecherche
+            label="Recherche"
+            value={q}
+            onChange={(valeur) => { setQ(valeur); setPage(1); }}
+            placeholder="Matricule, nom ou prénom…"
+            enveloppeClassName="w-full sm:max-w-xs"
+          />
+          <SelectFiltre
+            id="filtre-role"
+            label="Rôle"
+            icone={<IconeUtilisateur />}
+            value={filtreRole}
+            onChange={(valeur) => { setFiltreRole(valeur as '' | Role); setPage(1); }}
+            enveloppeClassName="w-full sm:max-w-xs"
+            options={[
+              { value: '', label: 'Tous les rôles' },
+              ...ROLES.map((r) => ({ value: r, label: LIBELLE_ROLE[r] })),
+            ]}
+          />
+          <SelectFiltre
+            id="filtre-statut"
+            label="Statut"
+            icone={<IconeStatut />}
+            value={filtreStatut}
+            onChange={(valeur) => { setFiltreStatut(valeur as '' | StatutUtilisateur); setPage(1); }}
+            enveloppeClassName="w-full sm:max-w-xs"
+            options={[
+              { value: '', label: 'Tous les statuts' },
+              { value: 'ACTIF', label: LIBELLE_STATUT.ACTIF },
+              { value: 'INACTIF', label: LIBELLE_STATUT.INACTIF },
+            ]}
+          />
+        </div>
+        <ResumeFiltres
+          filtres={filtresResume}
+          total={total}
+          chargement={chargement}
+          onToutEffacer={reinitialiserFiltres}
+          libelleChargement="Recherche…"
+        />
       </div>
 
       <div className="card overflow-hidden">
@@ -245,50 +311,45 @@ export default function GestionUtilisateurs() {
                 : 'Creez le premier compte administrateur ou cadre.'
             }
             ctaLabel={filtresActifs ? undefined : '+ Nouveau compte'}
-            ctaOnClick={filtresActifs ? () => { setQ(''); setFiltreRole(''); setFiltreStatut(''); } : ouvrirCreation}
+            ctaOnClick={filtresActifs ? reinitialiserFiltres : ouvrirCreation}
             filtreActif={filtresActifs}
           />
         ) : (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                {['Matricule', 'Nom', 'Role', 'Specialite', 'Niveau', 'Statut', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
+          <Tableau>
+            <EnteteTableau colonnes={['Matricule', 'Nom', 'Role', 'Specialite', 'Niveau', 'Statut', 'Actions']} />
+            <tbody>
               {utilisateurs.map((u) => (
-                <tr key={u.matricule} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium">{u.matricule}</td>
-                  <td className="px-4 py-3">{u.prenom} {u.nom}</td>
-                  <td className="px-4 py-3">
+                <tr key={u.matricule}>
+                  <td className="font-medium">{u.matricule}</td>
+                  <td>{u.prenom} {u.nom}</td>
+                  <td>
                     <span className={`badge ${u.role === 'ADMINISTRATEUR' ? 'bg-asecna-bleu text-white' : 'bg-slate-100 text-slate-800'}`}>
                       {u.role}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-slate-700">{u.specialite ?? '-'}</td>
-                  <td className="px-4 py-3 text-slate-700">{u.niveau_privilege ?? '-'}</td>
-                  <td className="px-4 py-3">
+                  <td className="text-slate-700">{u.specialite ?? '-'}</td>
+                  <td className="text-slate-700">{u.niveau_privilege ?? '-'}</td>
+                  <td>
                     <span className={`badge ${u.statut_compte === 'ACTIF' ? 'bg-emerald-100 text-emerald-800' : 'bg-red-100 text-red-800'}`}>
                       {u.statut_compte}
                     </span>
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button className="btn-secondary" onClick={() => ouvrirEdition(u)}>Modifier</button>
-                      <button className="btn-warning" onClick={() => ouvrirReset(u)}>Reinit. MDP</button>
-                      <button
-                        className={u.statut_compte === 'ACTIF' ? 'btn-danger' : 'btn-success'}
-                        onClick={() => void basculerStatut(u)}>
-                        {u.statut_compte === 'ACTIF' ? 'Desactiver' : 'Reactiver'}
-                      </button>
+                  <td>
+                    <div className="flex flex-wrap gap-1.5">
+                      <BoutonIcone libelle="Modifier l’utilisateur" icone="modifier" onClick={() => ouvrirEdition(u)} />
+                      <BoutonIcone libelle="Réinitialiser le mot de passe" icone="cle" variante="avertissement" onClick={() => ouvrirReset(u)} />
+                      <BoutonIcone
+                        libelle={u.statut_compte === 'ACTIF' ? 'Désactiver le compte' : 'Réactiver le compte'}
+                        icone={u.statut_compte === 'ACTIF' ? 'desactiver' : 'reactiver'}
+                        variante={u.statut_compte === 'ACTIF' ? 'danger' : 'succes'}
+                        onClick={() => void basculerStatut(u)}
+                      />
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Tableau>
         )}
       </div>
 
@@ -305,44 +366,61 @@ export default function GestionUtilisateurs() {
             </button>
           </>
         }>
-        <form id="form-user-creation" onSubmit={soumettreCreation} className="space-y-4">
-          <Champ label="Matricule * (1-20 : lettres, chiffres, . _ -)">
-            <Input required minLength={1} maxLength={20} pattern="^[A-Za-z0-9._-]{1,20}$"
-              value={formCreation.matricule}
-              onChange={(e) => setFormCreation({ ...formCreation, matricule: e.target.value })} />
-          </Champ>
-          <div className="grid grid-cols-2 gap-3">
-            <Champ label="Nom *">
-              <Input required maxLength={50} value={formCreation.nom}
-                onChange={(e) => setFormCreation({ ...formCreation, nom: e.target.value })} />
-            </Champ>
-            <Champ label="Prenom *">
-              <Input required maxLength={50} value={formCreation.prenom}
-                onChange={(e) => setFormCreation({ ...formCreation, prenom: e.target.value })} />
-            </Champ>
-          </div>
-          <Champ label="Mot de passe initial * (min. 8, 1 lettre, 1 chiffre)">
-            <Input type="password" required minLength={8} maxLength={128} autoComplete="new-password"
-              value={formCreation.mot_de_passe}
-              onChange={(e) => setFormCreation({ ...formCreation, mot_de_passe: e.target.value })} />
-          </Champ>
-          <Champ label="Role *">
-            <Select required value={formCreation.role}
-              onChange={(e) => setFormCreation({ ...formCreation, role: e.target.value as Role })}>
-              {ROLES.map((r) => <option key={r} value={r}>{r}</option>)}
-            </Select>
-          </Champ>
-          {formCreation.role === 'CADRE_MAINTENANCE' && (
-            <Champ label="Specialite * (max. 100)">
-              <Input required maxLength={100} value={formCreation.specialite}
-                onChange={(e) => setFormCreation({ ...formCreation, specialite: e.target.value })}
-                placeholder="Ex. Reseau, Systeme..." />
-            </Champ>
-          )}
-          <Champ label="Niveau de privilege (optionnel, max. 30)">
-            <Input maxLength={30} value={formCreation.niveau_privilege}
-              onChange={(e) => setFormCreation({ ...formCreation, niveau_privilege: e.target.value })} />
-          </Champ>
+        <form id="form-user-creation" onSubmit={soumettreCreation} className="space-y-5">
+          <SectionFormulaire
+            titre="Identité"
+            description="Renseignez les informations de base du compte utilisateur."
+          >
+            <FormGrid>
+              <Champ label="Matricule" requis aide="1 à 20 caractères : lettres, chiffres, point, tiret ou souligné.">
+                <Input required minLength={1} maxLength={20} pattern="^[A-Za-z0-9._-]{1,20}$"
+                  value={formCreation.matricule}
+                  onChange={(e) => setFormCreation({ ...formCreation, matricule: e.target.value })} />
+              </Champ>
+              <Champ label="Rôle" requis>
+                <SelectFiltre
+                  required
+                  value={formCreation.role}
+                  onChange={(valeur) => setFormCreation({ ...formCreation, role: valeur as Role })}
+                  options={ROLES.map((r) => ({ value: r, label: LIBELLE_ROLE[r] }))}
+                />
+              </Champ>
+              <Champ label="Nom" requis>
+                <Input required maxLength={50} value={formCreation.nom}
+                  onChange={(e) => setFormCreation({ ...formCreation, nom: e.target.value })} />
+              </Champ>
+              <Champ label="Prénom" requis>
+                <Input required maxLength={50} value={formCreation.prenom}
+                  onChange={(e) => setFormCreation({ ...formCreation, prenom: e.target.value })} />
+              </Champ>
+            </FormGrid>
+          </SectionFormulaire>
+
+          <SectionFormulaire
+            titre="Accès"
+            description="Définissez le mot de passe et les droits d’accès associés."
+          >
+            <FormGrid>
+              <Champ label="Mot de passe initial" requis aide="8 caractères minimum, dont au moins une lettre et un chiffre.">
+                <Input type="password" required minLength={8} maxLength={128} autoComplete="new-password"
+                  value={formCreation.mot_de_passe}
+                  onChange={(e) => setFormCreation({ ...formCreation, mot_de_passe: e.target.value })} />
+              </Champ>
+              <Champ label="Niveau de privilège" optionnel aide="30 caractères maximum.">
+                <Input maxLength={30} value={formCreation.niveau_privilege}
+                  onChange={(e) => setFormCreation({ ...formCreation, niveau_privilege: e.target.value })} />
+              </Champ>
+            </FormGrid>
+            {formCreation.role === 'CADRE_MAINTENANCE' && (
+              <div className="mt-4">
+                <Champ label="Spécialité" requis aide="100 caractères maximum.">
+                  <Input required maxLength={100} value={formCreation.specialite}
+                    onChange={(e) => setFormCreation({ ...formCreation, specialite: e.target.value })}
+                    placeholder="Ex. Réseau, Système..." />
+                </Champ>
+              </div>
+            )}
+          </SectionFormulaire>
         </form>
       </Modal>
 
@@ -357,30 +435,40 @@ export default function GestionUtilisateurs() {
             </button>
           </>
         }>
-        <form id="form-user-edition" onSubmit={soumettreEdition} className="space-y-4">
-          <p className="text-xs text-slate-500">
-            Le matricule et le role ne sont pas modifiables.
-          </p>
-          <div className="grid grid-cols-2 gap-3">
-            <Champ label="Nom *">
-              <Input required maxLength={50} value={formEdition.nom}
-                onChange={(e) => setFormEdition({ ...formEdition, nom: e.target.value })} />
+        <form id="form-user-edition" onSubmit={soumettreEdition} className="space-y-5">
+          <SectionFormulaire
+            titre="Profil"
+            description="Le matricule et le rôle ne sont pas modifiables."
+          >
+            <FormGrid>
+              <Champ label="Nom" requis>
+                <Input required maxLength={50} value={formEdition.nom}
+                  onChange={(e) => setFormEdition({ ...formEdition, nom: e.target.value })} />
+              </Champ>
+              <Champ label="Prénom" requis>
+                <Input required maxLength={50} value={formEdition.prenom}
+                  onChange={(e) => setFormEdition({ ...formEdition, prenom: e.target.value })} />
+              </Champ>
+            </FormGrid>
+          </SectionFormulaire>
+
+          <SectionFormulaire
+            titre="Droits"
+            description="Mettez à jour les informations de spécialité et les privilèges."
+          >
+            {modalEdition?.role === 'CADRE_MAINTENANCE' && (
+              <div className="mb-4">
+                <Champ label="Spécialité" requis aide="100 caractères maximum.">
+                  <Input required maxLength={100} value={formEdition.specialite}
+                    onChange={(e) => setFormEdition({ ...formEdition, specialite: e.target.value })} />
+                </Champ>
+              </div>
+            )}
+            <Champ label="Niveau de privilège" optionnel aide="30 caractères maximum.">
+              <Input maxLength={30} value={formEdition.niveau_privilege}
+                onChange={(e) => setFormEdition({ ...formEdition, niveau_privilege: e.target.value })} />
             </Champ>
-            <Champ label="Prenom *">
-              <Input required maxLength={50} value={formEdition.prenom}
-                onChange={(e) => setFormEdition({ ...formEdition, prenom: e.target.value })} />
-            </Champ>
-          </div>
-          {modalEdition?.role === 'CADRE_MAINTENANCE' && (
-            <Champ label="Specialite * (max. 100)">
-              <Input required maxLength={100} value={formEdition.specialite}
-                onChange={(e) => setFormEdition({ ...formEdition, specialite: e.target.value })} />
-            </Champ>
-          )}
-          <Champ label="Niveau de privilege (optionnel, max. 30)">
-            <Input maxLength={30} value={formEdition.niveau_privilege}
-              onChange={(e) => setFormEdition({ ...formEdition, niveau_privilege: e.target.value })} />
-          </Champ>
+          </SectionFormulaire>
         </form>
       </Modal>
 
@@ -395,8 +483,8 @@ export default function GestionUtilisateurs() {
             </button>
           </>
         }>
-        <form id="form-reset-mdp" onSubmit={soumettreReset} className="space-y-4">
-          <Champ label="Nouveau mot de passe * (min. 8, 1 lettre, 1 chiffre)">
+        <form id="form-reset-mdp" onSubmit={soumettreReset} className="space-y-5">
+          <Champ label="Nouveau mot de passe" requis aide="8 caractères minimum, dont au moins une lettre et un chiffre.">
             <Input type="password" required minLength={8} maxLength={128} autoComplete="new-password"
               value={nouveauMdp} onChange={(e) => setNouveauMdp(e.target.value)} />
           </Champ>

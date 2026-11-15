@@ -21,6 +21,7 @@ export class DashboardService {
     const [
       matStatut,
       matCategorie,
+      matLocalisation,
       incStatut,
       incUrgence,
       parMois,
@@ -31,6 +32,7 @@ export class DashboardService {
     ] = await Promise.all([
       this.repo.materielsParStatut(),
       this.repo.materielsParCategorie(),
+      this.repo.materielsParLocalisation(),
       this.repo.incidentsParStatut(),
       this.repo.incidentsOuvertsParUrgence(),
       this.repo.incidentsParMois(),
@@ -49,6 +51,7 @@ export class DashboardService {
         total: Object.values(materielsParStatut).reduce((a, b) => a + b, 0),
         par_statut: materielsParStatut,
         par_categorie: completer(TYPES_CATEGORIE, matCategorie),
+        par_localisation: matLocalisation,
       },
       incidents: {
         ouverts: STATUTS_INCIDENT_OUVERTS.reduce((somme, s) => somme + incidentsParStatut[s], 0),

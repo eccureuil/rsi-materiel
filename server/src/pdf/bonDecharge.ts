@@ -60,7 +60,7 @@ export async function genererBonDecharge(bon: BonDecharge): Promise<Buffer> {
 
   sectionTitre(doc, 'Mouvement');
   champ(doc, 'Date du mouvement', formatDate(bon.date_mouvement));
-  champ(doc, 'Agent concerné', bon.agent_beneficiaire);
+  champ(doc, 'Agent récepteur', bon.agent_beneficiaire);
   if (bon.type_mouvement !== 'AFFECTATION') {
     champ(doc, 'Provenance', libelleLocalisation(bon.origine));
   }
@@ -77,7 +77,7 @@ export async function genererBonDecharge(bon: BonDecharge): Promise<Buffer> {
   signatures(
     doc,
     {
-      titre: bon.type_mouvement === 'RESTITUTION' ? "L'agent restituant" : "L'agent bénéficiaire",
+      titre: bon.type_mouvement === 'RESTITUTION' ? "L'agent restituant" : "L'agent récepteur",
       nom: bon.agent_beneficiaire,
     },
     { titre: 'Le Chef du service RSI' },

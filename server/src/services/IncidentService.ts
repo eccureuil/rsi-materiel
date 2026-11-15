@@ -47,10 +47,19 @@ export class IncidentService {
 
   async declarer(dto: DeclarerIncidentDto, matricule: string): Promise<IncidentDetail> {
     const num = await withTransaction(async (client) => {
-      const statut = await this.incidents.getMaterielStatutTx(client, dto.code_materiel);
-      if (statut === null) throw new AppError(404, 'Matériel introuvable.');
-      if (statut === 'REFORME') {
+      const materiel = await this.incidents.getMaterielPourDeclarationTx(client, dto.code_materiel);
+      if (materiel === null) throw new AppError(404, 'Matériel introuvable.');
+      if (materiel.statut_materiel === 'REFORME') {
         throw new AppError(409, 'Ce matériel est réformé : aucune panne ne peut être déclarée.');
+      }
+      if (
+        materiel.type_categorie === 'OPERATIONNEL'
+        && !['URGENT', 'CRITIQUE'].includes(dto.degre_urgence)
+      ) {
+        throw new AppError(
+          409,
+          "Pour un matériel opérationnel, le degré d'urgence doit être URGENT ou CRITIQUE.",
+        );
       }
       if (await this.incidents.hasActiveIncidentTx(client, dto.code_materiel)) {
         throw new AppError(409, 'Un incident est déjà ouvert pour ce matériel.');

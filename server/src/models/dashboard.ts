@@ -19,12 +19,21 @@ export type PieceAlerte = {
   seuil_minimum: number;
 };
 
+export type MaterielParLocalisation = {
+  id_localisation: number;
+  nom_service: string;
+  code_bureau: string | null;
+  ville: string;
+  total: number;
+};
+
 export type DashboardStats = {
   genere_le: string;
   materiels: {
     total: number;
     par_statut: Record<StatutMateriel, number>;
     par_categorie: Record<TypeCategorie, number>;
+    par_localisation: MaterielParLocalisation[];
   };
   incidents: {
     ouverts: number;

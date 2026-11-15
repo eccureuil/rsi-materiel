@@ -16,5 +16,6 @@ router.use(authenticate, auditTrail);
 router.get('/', controller.lister);
 router.get('/:id', controller.obtenir);
 router.post('/', controller.creer);
+router.post('/:id/bon', controller.genererBon);
 
 export default router;

@@ -6,14 +6,20 @@ import {
 import { extraireMessageErreur } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
+import BoutonCreation from '@/components/BoutonCreation';
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
-import { Champ, Input } from '@/components/FormControls';
+import {
+  Champ, ChampFiltre, ChampRecherche, FormGrid, IconeAlerte, Input, ResumeFiltres,
+  SectionFormulaire, type FiltreActif,
+} from '@/components/FormControls';
 import type { Piece, PieceInput } from '@/types/api';
 import { useDebounce } from '@/hooks/useDebounce';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTableau } from '@/components/Skeleton';
+import { BoutonIcone } from '@/components/BoutonIcone';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
+import { EnteteTableau, Tableau } from '@/components/Tableau';
 
 interface Formulaire {
   ref_piece: string;
@@ -30,6 +36,7 @@ export default function StockPieces() {
   const { confirmer } = useConfirm();
 
   const [pieces, setPieces] = useState<Piece[]>([]);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [chargement, setChargement] = useState(false);
@@ -39,6 +46,23 @@ export default function StockPieces() {
   const qDebounce = useDebounce(q, 300);
   const [sousSeuil, setSousSeuil] = useState(searchParams.get('sous_seuil') === 'true');
   const filtresActifs = q.trim() !== '' || sousSeuil;
+
+  const reinitialiserFiltres = () => {
+    setQ('');
+    setSousSeuil(false);
+    setPage(1);
+  };
+
+  const filtresResume: FiltreActif[] = [
+    ...(q.trim() ? [{
+      label: `Recherche : « ${q.trim()} »`,
+      onSupprimer: () => { setQ(''); setPage(1); },
+    }] : []),
+    ...(sousSeuil ? [{
+      label: 'Alerte stock uniquement',
+      onSupprimer: () => { setSousSeuil(false); setPage(1); },
+    }] : []),
+  ];
 
   const [modal, setModal] = useState<ModalType>(null);
   const [cible, setCible] = useState<Piece | null>(null);
@@ -56,6 +80,7 @@ export default function StockPieces() {
         page, limit: 20,
       });
       setPieces(res.items);
+      setTotal(res.total);
       setTotalPages(res.totalPages);
     } catch (err) {
       toast.erreur('Chargement impossible', extraireMessageErreur(err));
@@ -157,17 +182,37 @@ export default function StockPieces() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-2xl font-semibold text-slate-900">Stock de pièces</h1>
-        <button className="btn-primary" onClick={ouvrirCreation}>+ Nouvelle pièce</button>
+        <BoutonCreation libelle="Nouvelle pièce" onClick={ouvrirCreation} />
       </div>
 
-      <div className="card flex flex-wrap items-center gap-3 p-4">
-        <Input placeholder="Rechercher (référence, désignation…)" value={q}
-          onChange={(e) => { setQ(e.target.value); setPage(1); }} className="max-w-xs" />
-        <label className="flex items-center gap-2 text-sm text-slate-700">
-          <input type="checkbox" checked={sousSeuil}
-            onChange={(e) => { setSousSeuil(e.target.checked); setPage(1); }} />
-          Uniquement les pièces en alerte
-        </label>
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <ChampRecherche
+            label="Recherche"
+            value={q}
+            onChange={(valeur) => { setQ(valeur); setPage(1); }}
+            placeholder="Référence ou désignation…"
+            enveloppeClassName="w-full sm:max-w-xs"
+          />
+          <ChampFiltre label="Alerte stock" icone={<IconeAlerte />} className="w-full sm:w-auto">
+            <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={sousSeuil}
+                onChange={(e) => { setSousSeuil(e.target.checked); setPage(1); }}
+                  className="case"
+              />
+              Uniquement les pièces en alerte
+            </label>
+          </ChampFiltre>
+        </div>
+        <ResumeFiltres
+          filtres={filtresResume}
+          total={total}
+          chargement={chargement}
+          onToutEffacer={reinitialiserFiltres}
+          libelleChargement="Recherche…"
+        />
       </div>
 
       <div className="card overflow-hidden">
@@ -183,42 +228,36 @@ export default function StockPieces() {
                 : 'Ajoutez vos premieres pieces detachees pour suivre le stock.'
             }
             ctaLabel={filtresActifs ? undefined : '+ Nouvelle piece'}
-            ctaOnClick={filtresActifs ? () => { setQ(''); setSousSeuil(false); } : ouvrirCreation}
+            ctaOnClick={filtresActifs ? reinitialiserFiltres : ouvrirCreation}
             filtreActif={filtresActifs}
           />
         ) : (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                {['Référence', 'Désignation', 'Stock', 'Seuil', 'État', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
+          <Tableau>
+            <EnteteTableau colonnes={['Référence', 'Désignation', 'Stock', 'Seuil', 'État', 'Actions']} />
+            <tbody>
               {pieces.map((p) => (
-                <tr key={p.ref_piece} className={p.en_alerte ? 'bg-red-50 hover:bg-red-100' : 'hover:bg-slate-50'}>
-                  <td className="px-4 py-3 font-medium">{p.ref_piece}</td>
-                  <td className="px-4 py-3">{p.designation}</td>
-                  <td className="px-4 py-3">{p.quantite_en_stock}</td>
-                  <td className="px-4 py-3">{p.seuil_minimum}</td>
-                  <td className="px-4 py-3">
+                <tr key={p.ref_piece} className={p.en_alerte ? 'bg-red-50 hover:bg-red-100' : undefined}>
+                  <td className="font-medium">{p.ref_piece}</td>
+                  <td>{p.designation}</td>
+                  <td>{p.quantite_en_stock}</td>
+                  <td>{p.seuil_minimum}</td>
+                  <td>
                     {p.en_alerte
                       ? <span className="badge bg-red-100 text-red-800">En alerte</span>
                       : <span className="badge bg-emerald-100 text-emerald-800">OK</span>}
                   </td>
-                  <td className="px-4 py-3">
-                    <div className="flex flex-wrap gap-2">
-                      <button className="btn-secondary" onClick={() => ouvrirEdition(p)}>Modifier</button>
-                      <button className="btn-success" onClick={() => ouvrirAppro(p)}>Approvisionner</button>
-                      <button className="btn-warning" onClick={() => ouvrirAjust(p)}>Ajuster</button>
-                      <button className="btn-danger" onClick={() => void supprimer(p)}>Supprimer</button>
+                  <td>
+                    <div className="flex flex-wrap gap-1.5">
+                      <BoutonIcone libelle="Modifier la pièce" icone="modifier" onClick={() => ouvrirEdition(p)} />
+                      <BoutonIcone libelle="Approvisionner la pièce" icone="approvisionner" variante="succes" onClick={() => ouvrirAppro(p)} />
+                      <BoutonIcone libelle="Ajuster le stock" icone="ajuster" variante="avertissement" onClick={() => ouvrirAjust(p)} />
+                      <BoutonIcone libelle="Supprimer la pièce" icone="supprimer" variante="danger" onClick={() => void supprimer(p)} />
                     </div>
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Tableau>
         )}
       </div>
 
@@ -233,25 +272,34 @@ export default function StockPieces() {
             </button>
           </>
         }>
-        <form id="form-piece-creation" onSubmit={soumettreCreation} className="space-y-4">
-          <Champ label="Référence *">
-            <Input required value={form.ref_piece}
-              onChange={(e) => setForm({ ...form, ref_piece: e.target.value })} />
-          </Champ>
-          <Champ label="Désignation *">
-            <Input required value={form.designation}
-              onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-          </Champ>
-          <div className="grid grid-cols-2 gap-3">
-            <Champ label="Quantité initiale *">
-              <Input type="number" min={0} required value={form.quantite_en_stock}
-                onChange={(e) => setForm({ ...form, quantite_en_stock: e.target.value })} />
-            </Champ>
-            <Champ label="Seuil minimum *">
-              <Input type="number" min={0} required value={form.seuil_minimum}
-                onChange={(e) => setForm({ ...form, seuil_minimum: e.target.value })} />
-            </Champ>
-          </div>
+        <form id="form-piece-creation" onSubmit={soumettreCreation} className="space-y-5">
+          <SectionFormulaire
+            titre="Pièce"
+            description="Renseignez les informations de base et les seuils de suivi du stock."
+          >
+            <FormGrid>
+              <Champ label="Référence" requis>
+                <Input required value={form.ref_piece}
+                  onChange={(e) => setForm({ ...form, ref_piece: e.target.value })} />
+              </Champ>
+              <Champ label="Quantité initiale" requis>
+                <Input type="number" min={0} required value={form.quantite_en_stock}
+                  onChange={(e) => setForm({ ...form, quantite_en_stock: e.target.value })} />
+              </Champ>
+              <div className="sm:col-span-2">
+                <Champ label="Désignation" requis>
+                  <Input required value={form.designation}
+                    onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+                </Champ>
+              </div>
+              <div className="sm:col-span-2">
+                <Champ label="Seuil minimum" requis aide="Déclenche l'alerte de stock.">
+                  <Input type="number" min={0} required value={form.seuil_minimum}
+                    onChange={(e) => setForm({ ...form, seuil_minimum: e.target.value })} />
+                </Champ>
+              </div>
+            </FormGrid>
+          </SectionFormulaire>
         </form>
       </Modal>
 
@@ -264,15 +312,26 @@ export default function StockPieces() {
             </button>
           </>
         }>
-        <form id="form-piece-edition" onSubmit={soumettreEdition} className="space-y-4">
-          <Champ label="Désignation *">
-            <Input required value={form.designation}
-              onChange={(e) => setForm({ ...form, designation: e.target.value })} />
-          </Champ>
-          <Champ label="Seuil minimum *">
-            <Input type="number" min={0} required value={form.seuil_minimum}
-              onChange={(e) => setForm({ ...form, seuil_minimum: e.target.value })} />
-          </Champ>
+        <form id="form-piece-edition" onSubmit={soumettreEdition} className="space-y-5">
+          <SectionFormulaire
+            titre="Mise à jour"
+            description="Modifiez le libellé et le seuil de vigilance de la pièce."
+          >
+            <FormGrid>
+              <div className="sm:col-span-2">
+                <Champ label="Désignation" requis>
+                  <Input required value={form.designation}
+                    onChange={(e) => setForm({ ...form, designation: e.target.value })} />
+                </Champ>
+              </div>
+              <div className="sm:col-span-2">
+                <Champ label="Seuil minimum" requis aide="Déclenche l'alerte de stock.">
+                  <Input type="number" min={0} required value={form.seuil_minimum}
+                    onChange={(e) => setForm({ ...form, seuil_minimum: e.target.value })} />
+                </Champ>
+              </div>
+            </FormGrid>
+          </SectionFormulaire>
         </form>
       </Modal>
 
@@ -285,11 +344,16 @@ export default function StockPieces() {
             </button>
           </>
         }>
-        <form id="form-appro" onSubmit={soumettreAppro} className="space-y-4">
-          <Champ label="Quantité à ajouter *">
-            <Input type="number" min={1} required value={qteMouv}
-              onChange={(e) => setQteMouv(e.target.value)} />
-          </Champ>
+        <form id="form-appro" onSubmit={soumettreAppro} className="space-y-5">
+          <SectionFormulaire
+            titre="Approvisionnement"
+            description="Ajoutez la quantité nécessaire au stock de cette pièce."
+          >
+            <Champ label="Quantité à ajouter" requis>
+              <Input type="number" min={1} required value={qteMouv}
+                onChange={(e) => setQteMouv(e.target.value)} />
+            </Champ>
+          </SectionFormulaire>
         </form>
       </Modal>
 
@@ -302,15 +366,22 @@ export default function StockPieces() {
             </button>
           </>
         }>
-        <form id="form-ajust" onSubmit={soumettreAjust} className="space-y-4">
-          <Champ label="Nouvelle quantité en stock *">
-            <Input type="number" min={0} required value={qteMouv}
-              onChange={(e) => setQteMouv(e.target.value)} />
-          </Champ>
-          <Champ label="Motif *">
-            <Input required value={motifAjust} onChange={(e) => setMotifAjust(e.target.value)}
-              placeholder="Ex. inventaire physique, casse…" />
-          </Champ>
+        <form id="form-ajust" onSubmit={soumettreAjust} className="space-y-5">
+          <SectionFormulaire
+            titre="Ajustement"
+            description="Corrigez le stock et précisez le motif associé."
+          >
+            <FormGrid>
+              <Champ label="Nouvelle quantité en stock" requis>
+                <Input type="number" min={0} required value={qteMouv}
+                  onChange={(e) => setQteMouv(e.target.value)} />
+              </Champ>
+              <Champ label="Motif" requis aide="Précisez la raison de l'ajustement.">
+                <Input required value={motifAjust} onChange={(e) => setMotifAjust(e.target.value)}
+                  placeholder="Ex. inventaire physique, casse…" />
+              </Champ>
+            </FormGrid>
+          </SectionFormulaire>
         </form>
       </Modal>
     </div>

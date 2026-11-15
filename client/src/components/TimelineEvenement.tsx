@@ -59,6 +59,18 @@ function str(details: Record<string, string | number | null>, cle: string): stri
   return v === null || v === undefined ? null : String(v);
 }
 
+function localisationLabel(nom: string | null, bureau: string | null, ville: string | null): string {
+  return `${nom ?? '-'}${bureau ? ` (${bureau})` : ''}${ville ? ` - ${ville}` : ''}`;
+}
+
+function dateAffichee(evenement: Evenement): string {
+  const [datePart, heure] = evenement.date_evenement.split(' ');
+  const [annee, mois, jour] = datePart.split('-');
+  const dateFr = annee && mois && jour ? `${jour}-${mois}-${annee}` : datePart;
+  if (evenement.type_evenement === 'ACQUISITION') return dateFr;
+  return heure ? `${dateFr} ${heure}` : dateFr;
+}
+
 export default function TimelineEvenement({ evenement }: { evenement: Evenement }) {
   const c = CONFIG[evenement.type_evenement];
   return (
@@ -70,7 +82,7 @@ export default function TimelineEvenement({ evenement }: { evenement: Evenement 
             {c.icone}
           </span>
           <span className={`text-sm font-semibold ${c.texte}`}>{c.titre}</span>
-          <span className="text-xs text-slate-500">{evenement.date_evenement}</span>
+          <span className="text-xs text-slate-500">{dateAffichee(evenement)}</span>
           {evenement.reference && (
             <span className="ml-auto rounded bg-white/70 px-2 py-0.5 font-mono text-xs text-slate-600">
               {evenement.reference}
@@ -90,10 +102,16 @@ function Details({ evenement }: { evenement: Evenement }) {
       const marque = str(d, 'marque');
       const modele = str(d, 'modele');
       const serie = str(d, 'num_serie');
+      const origine = str(d, 'localisation_origine');
+      const origineBureau = str(d, 'origine_code_bureau');
+      const origineVille = str(d, 'origine_ville');
       return (
-        <p className="text-xs text-slate-700">
-          {marque ?? 'INCONNU'} {modele ?? ''}{serie ? ` - N° serie ${serie}` : ''}
-        </p>
+        <div className="space-y-1 text-xs text-slate-700">
+          <p>
+            {marque ?? 'INCONNU'} {modele ?? ''}{serie ? ` - N° serie ${serie}` : ''}
+          </p>
+          {origine && <p>Localisation d'origine : {localisationLabel(origine, origineBureau, origineVille)}</p>}
+        </div>
       );
     }
     case 'MOUVEMENT': {
@@ -102,18 +120,18 @@ function Details({ evenement }: { evenement: Evenement }) {
       const localisation = str(d, 'localisation');
       const bureau = str(d, 'code_bureau');
       const ville = str(d, 'ville');
+      const origine = str(d, 'origine_localisation');
+      const origineBureau = str(d, 'origine_code_bureau');
+      const origineVille = str(d, 'origine_ville');
       const motif = str(d, 'motif_mouvement');
       return (
         <div className="space-y-1 text-xs text-slate-700">
           <p>
             <span className="font-medium">{type ?? 'MOUVEMENT'}</span>
-            {agent ? ` - beneficiaire : ${agent}` : ''}
+            {agent ? ` - récepteur : ${agent}` : ''}
           </p>
-          {localisation && (
-            <p>
-              Destination : {localisation}{bureau ? ` (${bureau})` : ''}{ville ? ` - ${ville}` : ''}
-            </p>
-          )}
+          <p>Origine : {origine ? localisationLabel(origine, origineBureau, origineVille) : '-'}</p>
+          <p>Destination : {localisation ? localisationLabel(localisation, bureau, ville) : '-'}</p>
           {motif && <p className="italic text-slate-600">Motif : {motif}</p>}
         </div>
       );

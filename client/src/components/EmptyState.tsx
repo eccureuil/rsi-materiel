@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react';
 import { Link } from 'react-router-dom';
+import BoutonCreation from '@/components/BoutonCreation';
 
 interface Props {
   icone?: ReactNode;
@@ -26,35 +27,78 @@ export default function EmptyState({
   filtreActif = false,
 }: Props) {
   return (
-    <div className="rsi-fade-in flex flex-col items-center justify-center px-6 py-16 text-center">
-      {icone && (
-        <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-slate-100 text-slate-400">
-          {icone}
-        </div>
-      )}
-      <h3 className="text-base font-semibold text-slate-900">{titre}</h3>
-      {description && (
-        <p className="mt-1 max-w-md text-sm text-slate-500">{description}</p>
-      )}
+    <div
+      role="status"
+      aria-live="polite"
+      className="rsi-fade-in relative flex flex-col items-center justify-center overflow-hidden px-6 py-16 text-center"
+    >
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_top,rgba(0,51,102,0.06),transparent_55%)]"
+      />
 
-      <div className="mt-5 flex flex-wrap justify-center gap-2">
-        {ctaLabel && ctaOnClick && (
-          <button className="btn-primary" onClick={ctaOnClick}>
-            {ctaLabel}
-          </button>
+      <div className="relative flex flex-col items-center">
+        <span
+          className={`mb-3 inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[10px] font-semibold uppercase tracking-[0.16em] ${
+            filtreActif
+              ? 'border-amber-200 bg-amber-50 text-amber-700'
+              : 'border-slate-200 bg-slate-50 text-slate-500'
+          }`}
+        >
+          <span className={`h-1.5 w-1.5 rounded-full ${filtreActif ? 'bg-amber-500' : 'bg-slate-400'}`} />
+          {filtreActif ? 'Aucun résultat' : 'Aucune donnée'}
+        </span>
+
+        {icone && (
+          <div
+            className={`mb-4 flex h-16 w-16 items-center justify-center rounded-2xl ${
+              filtreActif
+                ? 'bg-asecna-bleu/5 text-asecna-bleu ring-1 ring-asecna-bleu/15'
+                : 'bg-slate-100 text-slate-400'
+            }`}
+          >
+            {icone}
+          </div>
         )}
-        {lienLabel && lienTo && (
-          <Link to={lienTo} className="btn-primary">
-            {lienLabel}
-          </Link>
+
+        <h3 className="text-base font-semibold text-slate-900">{titre}</h3>
+        {description && (
+          <p className="mt-1 max-w-md text-sm text-slate-500">{description}</p>
         )}
-        {filtreActif && ctaOnClick && !ctaLabel && (
-          <button className="btn-secondary" onClick={ctaOnClick}>
-            Reinitialiser les filtres
-          </button>
-        )}
+
+        <div className="mt-5 flex flex-wrap justify-center gap-2">
+          {filtreActif && ctaOnClick && (
+            <button type="button" className="btn-secondary inline-flex items-center gap-2" onClick={ctaOnClick}>
+              <IconeReinitialiser />
+              Réinitialiser les filtres
+            </button>
+          )}
+          {!filtreActif && ctaLabel && ctaOnClick && (
+            ctaLabel.trim().startsWith('+') ? (
+              <BoutonCreation libelle={ctaLabel.replace(/^\+\s*/, '')} onClick={ctaOnClick} />
+            ) : (
+              <button type="button" className="btn-primary" onClick={ctaOnClick}>
+                {ctaLabel}
+              </button>
+            )
+          )}
+          {lienLabel && lienTo && (
+            <Link to={lienTo} className="btn-primary">
+              {lienLabel}
+            </Link>
+          )}
+        </div>
       </div>
     </div>
+  );
+}
+
+function IconeReinitialiser() {
+  return (
+    <svg aria-hidden="true" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M3 12a9 9 0 1 0 3-6.7L3 8" />
+      <path d="M3 3v5h5" />
+    </svg>
   );
 }
 

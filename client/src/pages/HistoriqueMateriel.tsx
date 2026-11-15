@@ -6,7 +6,9 @@ import Badge from '@/components/Badge';
 import TimelineEvenement from '@/components/TimelineEvenement';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 import { SkeletonLigne } from '@/components/Skeleton';
-import { Input } from '@/components/FormControls';
+import {
+  ChampFiltre, IconeCalendrier, IconeCategorie, Input, ResumeFiltres, type FiltreActif,
+} from '@/components/FormControls';
 import { TYPES_EVENEMENT, type HistoriqueMateriel, type TypeEvenement } from '@/types/historique';
 
 const LIBELLE_TYPE: Record<TypeEvenement, string> = {
@@ -69,6 +71,21 @@ export default function HistoriqueMaterielPage() {
   const m = historique?.materiel;
   const s = historique?.synthese;
 
+  const filtresResume: FiltreActif[] = [
+    ...TYPES_EVENEMENT.filter((t) => typesActifs.has(t)).map((t) => ({
+      label: `Type : ${LIBELLE_TYPE[t]}`,
+      onSupprimer: () => basculerType(t),
+    })),
+    ...(du ? [{
+      label: `Du : ${du}`,
+      onSupprimer: () => setDu(''),
+    }] : []),
+    ...(au ? [{
+      label: `Au : ${au}`,
+      onSupprimer: () => setAu(''),
+    }] : []),
+  ];
+
   const contenu = useMemo(() => {
     if (chargement) {
       return (
@@ -83,7 +100,7 @@ export default function HistoriqueMaterielPage() {
     if (!historique || historique.evenements.length === 0) {
       return (
         <EmptyState
-          icone={<IconesEmpty.Boite />}
+          icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Boite />}
           titre={filtresActifs ? 'Aucun evenement ne correspond aux filtres' : 'Aucun evenement enregistre'}
           description={
             filtresActifs
@@ -128,10 +145,17 @@ export default function HistoriqueMaterielPage() {
             <Badge valeur={m.statut_materiel} />
             <span className="text-sm text-slate-500">{m.type_categorie}</span>
           </div>
-          <p className="text-sm text-slate-600">
-            N° serie : {m.num_serie ?? '-'} - Localisation : {m.nom_service ?? '-'}
-            {m.code_bureau ? ` (${m.code_bureau})` : ''} - {m.ville ?? '-'}
-          </p>
+          <div className="space-y-1 text-sm text-slate-600">
+            <p>N° serie : {m.num_serie ?? '-'}</p>
+            <p>
+              Localisation actuelle : {m.nom_service ?? '-'}
+              {m.code_bureau ? ` (${m.code_bureau})` : ''} - {m.ville ?? '-'}
+            </p>
+            <p>
+              Localisation d'origine : {m.origine_nom_service ?? '-'}
+              {m.origine_code_bureau ? ` (${m.origine_code_bureau})` : ''} - {m.origine_ville ?? '-'}
+            </p>
+          </div>
         </div>
       )}
 
@@ -162,37 +186,55 @@ export default function HistoriqueMaterielPage() {
         </div>
       )}
 
-      <div className="card p-4">
-        <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Types d'evenement</p>
-        <div className="mb-3 flex flex-wrap gap-2">
-          {TYPES_EVENEMENT.map((t) => {
-            const actif = typesActifs.has(t);
-            return (
-              <button
-                key={t}
-                onClick={() => basculerType(t)}
-                className={`rounded-full px-3 py-1 text-xs font-medium transition-colors ${
-                  actif ? 'bg-asecna-bleu text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                }`}
-              >
-                {LIBELLE_TYPE[t]}
-              </button>
-            );
-          })}
-        </div>
-        <div className="flex flex-wrap items-end gap-3">
-          <div>
-            <label className="label">Du</label>
-            <Input type="date" value={du} onChange={(e) => setDu(e.target.value)} className="max-w-xs" />
+      <div className="card overflow-hidden">
+        <div className="space-y-4 p-4">
+          <ChampFiltre label="Types d'événement" icone={<IconeCategorie />}>
+            <div className="flex flex-wrap gap-2">
+              {TYPES_EVENEMENT.map((t) => {
+                const actif = typesActifs.has(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() => basculerType(t)}
+                    className={`rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                      actif ? 'bg-asecna-bleu text-white shadow-sm' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
+                    }`}
+                  >
+                    {LIBELLE_TYPE[t]}
+                  </button>
+                );
+              })}
+            </div>
+          </ChampFiltre>
+          <div className="flex flex-wrap items-end gap-3">
+            <ChampFiltre label="Du" icone={<IconeCalendrier />} htmlFor="historique-du" className="w-full sm:w-auto">
+              <Input
+                id="historique-du"
+                type="date"
+                value={du}
+                onChange={(e) => setDu(e.target.value)}
+                className="h-11 sm:w-48"
+              />
+            </ChampFiltre>
+            <ChampFiltre label="Au" icone={<IconeCalendrier />} htmlFor="historique-au" className="w-full sm:w-auto">
+              <Input
+                id="historique-au"
+                type="date"
+                value={au}
+                onChange={(e) => setAu(e.target.value)}
+                className="h-11 sm:w-48"
+              />
+            </ChampFiltre>
           </div>
-          <div>
-            <label className="label">Au</label>
-            <Input type="date" value={au} onChange={(e) => setAu(e.target.value)} className="max-w-xs" />
-          </div>
-          {filtresActifs && (
-            <button className="btn-secondary" onClick={reinitialiser}>Reinitialiser</button>
-          )}
         </div>
+        <ResumeFiltres
+          filtres={filtresResume}
+          total={historique?.evenements.length ?? 0}
+          chargement={chargement}
+          onToutEffacer={reinitialiser}
+          unite="événement(s)"
+        />
       </div>
 
       <div className="card p-5">

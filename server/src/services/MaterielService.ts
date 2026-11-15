@@ -40,7 +40,7 @@ export class MaterielService {
   }
 
   async creer(dto: CreateMaterielDto): Promise<Materiel> {
-    await this.verifierLocalisation(dto.id_localisation);
+    await this.verifierLocalisation(dto.id_localisation_origine);
     const { code_materiel, ...donnees } = dto;
     await this.materiels.create(code_materiel, donnees);
     return this.obtenir(code_materiel);
@@ -48,7 +48,6 @@ export class MaterielService {
 
   async modifier(code: string, dto: MaterielDto): Promise<Materiel> {
     await this.obtenir(code);
-    await this.verifierLocalisation(dto.id_localisation);
     await this.materiels.update(code, dto);
     return this.obtenir(code);
   }

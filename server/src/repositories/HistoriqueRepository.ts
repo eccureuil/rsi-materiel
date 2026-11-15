@@ -7,8 +7,15 @@ const EVENEMENTS_CTE = `
     SELECT m.code_materiel, 'ACQUISITION'::text AS type_evenement, 1 AS ordre,
            m.date_acquisition::timestamp AS date_evenement,
            m.code_materiel::text AS reference,
-           jsonb_build_object('marque', m.marque, 'modele', m.modele, 'num_serie', m.num_serie) AS details
+           jsonb_build_object(
+             'marque', m.marque,
+             'modele', m.modele,
+             'num_serie', m.num_serie,
+             'localisation_origine', lo.nom_service,
+             'origine_code_bureau', lo.code_bureau,
+             'origine_ville', lo.ville) AS details
       FROM materiels m
+      JOIN localisations lo ON lo.id_localisation = m.id_localisation_origine
 
     UNION ALL
     SELECT a.code_materiel, 'MOUVEMENT', 2, a.date_mouvement, b.num_bon::text,
@@ -19,9 +26,13 @@ const EVENEMENTS_CTE = `
              'localisation', l.nom_service,
              'code_bureau', l.code_bureau,
              'ville', l.ville,
+             'origine_localisation', lo.nom_service,
+             'origine_code_bureau', lo.code_bureau,
+             'origine_ville', lo.ville,
              'id_affectation', a.id_affectation)
       FROM affectations a
       JOIN localisations l ON l.id_localisation = a.id_localisation
+      LEFT JOIN localisations lo ON lo.id_localisation = a.id_localisation_origine
       LEFT JOIN bons_decharge b ON b.id_affectation = a.id_affectation
 
     UNION ALL

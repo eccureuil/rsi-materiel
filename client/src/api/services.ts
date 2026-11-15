@@ -11,6 +11,17 @@ function normaliserIntervention(i: Intervention): Intervention {
   return { ...i, intervenants: i.intervenants ?? [] };
 }
 
+export const INTERVENTIONS_CHANGE_EVENT = 'rsi:interventions-change';
+export const PIECES_CHANGE_EVENT = 'rsi:pieces-change';
+
+function signalerChangementInterventions(): void {
+  window.dispatchEvent(new Event(INTERVENTIONS_CHANGE_EVENT));
+}
+
+function signalerChangementPieces(): void {
+  window.dispatchEvent(new Event(PIECES_CHANGE_EVENT));
+}
+
 // ---------- Localisations ----------
 export async function listerLocalisations(): Promise<Localisation[]> {
   const { data } = await api.get<{ items: Localisation[] }>('/localisations');
@@ -80,6 +91,7 @@ export async function declarerIncident(input: IncidentInput): Promise<Incident> 
 }
 export async function intervenirIncident(num: string, type_maintenance?: string): Promise<void> {
   await api.post(`/incidents/${num}/intervenir`, { type_maintenance });
+  signalerChangementInterventions();
 }
 export async function rejeterIncident(num: string, motif: string): Promise<void> {
   await api.post(`/incidents/${num}/rejeter`, { motif });
@@ -115,6 +127,7 @@ export async function terminerIntervention(
   input: { travaux_realises: string; statut_final_materiel: string; diagnostic?: string },
 ): Promise<void> {
   await api.post(`/interventions/${num}/terminer`, input);
+  signalerChangementInterventions();
 }
 export async function listerImputations(num: string): Promise<Imputation[]> {
   const { data } = await api.get<{ items: Imputation[] }>(`/interventions/${num}/pieces`);
@@ -129,10 +142,12 @@ export async function imputerPiece(
     `/interventions/${num}/pieces`,
     { ref_piece, quantite_utilisee },
   );
+  signalerChangementPieces();
   return data;
 }
 export async function supprimerImputation(num: string, id: number): Promise<void> {
   await api.delete(`/interventions/${num}/pieces/${id}`);
+  signalerChangementPieces();
 }
 
 // ---------- Stock ----------
@@ -148,21 +163,26 @@ export async function listerPieces(filtres: FiltresPieces = {}): Promise<Paginat
 }
 export async function creerPiece(input: PieceInput): Promise<Piece> {
   const { data } = await api.post<{ piece: Piece }>('/pieces', input);
+  signalerChangementPieces();
   return data.piece;
 }
 export async function modifierPiece(ref: string, input: PieceUpdateInput): Promise<Piece> {
   const { data } = await api.put<{ piece: Piece }>(`/pieces/${ref}`, input);
+  signalerChangementPieces();
   return data.piece;
 }
 export async function supprimerPiece(ref: string): Promise<void> {
   await api.delete(`/pieces/${ref}`);
+  signalerChangementPieces();
 }
 export async function approvisionnerPiece(ref: string, quantite: number): Promise<Piece> {
   const { data } = await api.post<{ piece: Piece }>(`/pieces/${ref}/approvisionner`, { quantite });
+  signalerChangementPieces();
   return data.piece;
 }
 export async function ajusterPiece(ref: string, quantite_en_stock: number, motif: string): Promise<Piece> {
   const { data } = await api.post<{ piece: Piece }>(`/pieces/${ref}/ajuster`, { quantite_en_stock, motif });
+  signalerChangementPieces();
   return data.piece;
 }
 
@@ -259,9 +279,17 @@ export async function creerAffectation(
   const { data } = await api.post<CreationAffectationResponse>('/affectations', input);
   return data;
 }
+export async function genererBonAffectation(id: number): Promise<BonDecharge> {
+  const { data } = await api.post<{ bon: BonDecharge }>(`/affectations/${id}/bon`);
+  return data.bon;
+}
+export function urlPdfBonNum(numBon: string, telecharger = false): string {
+  const url = `http://localhost:3000/api/bons/${numBon}/pdf`;
+  return telecharger ? `${url}?telecharger=true` : url;
+}
 export function urlPdfBon(bon: BonDecharge): string | null {
   if (!bon.chemin_fichier_pdf) return null;
-  return `http://localhost:3000/api/bons/${bon.num_bon}/pdf`;
+  return urlPdfBonNum(bon.num_bon, true);
 }
 // ---------- Historique ----------
 import type {

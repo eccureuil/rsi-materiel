@@ -22,6 +22,10 @@ export type Materiel = {
   nom_service: string;
   code_bureau: string | null;
   ville: string;
+  id_localisation_origine: number;
+  origine_nom_service: string;
+  origine_code_bureau: string | null;
+  origine_ville: string;
 };
 
 const materielBase = z.object({
@@ -29,12 +33,10 @@ const materielBase = z.object({
   marque: valeurOuInconnu(50),
   modele: valeurOuInconnu(50),
   date_acquisition: z.iso.date('Date invalide (format AAAA-MM-JJ).'),
-  statut_materiel: z.enum(STATUTS_MATERIEL).default('STOCK'),
   caracteristiques: texteOptionnel(5000),
   type_categorie: z.enum(TYPES_CATEGORIE),
   type_equipement: texteOptionnel(50),
   systeme_aviation: texteOptionnel(50),
-  id_localisation: z.number().int().positive(),
 });
 
 export const updateMaterielSchema = materielBase;
@@ -45,6 +47,7 @@ export const createMaterielSchema = materielBase.extend({
     .string()
     .trim()
     .regex(/^[A-Za-z0-9._-]{1,30}$/, 'Code invalide : 1 à 30 caractères (lettres, chiffres, . _ -).'),
+  id_localisation_origine: z.number().int().positive(),
 });
 export type CreateMaterielDto = z.infer<typeof createMaterielSchema>;
 

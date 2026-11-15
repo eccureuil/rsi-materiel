@@ -75,6 +75,14 @@ export class AffectationRepository {
     return res.rows[0] ?? null;
   }
 
+  async findNumBonByAffectation(id: number): Promise<string | null> {
+    const res = await pool.query<{ num_bon: string }>(
+      'SELECT num_bon FROM bons_decharge WHERE id_affectation = $1',
+      [id],
+    );
+    return res.rows[0]?.num_bon ?? null;
+  }
+
   async findBonByNum(num: string): Promise<BonDecharge | null> {
     const res = await pool.query<BonLigne>(
       `SELECT b.num_bon, b.id_affectation,

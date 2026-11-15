@@ -1,5 +1,5 @@
 import { pool } from '../config/database.js';
-import type { IncidentResume, PieceAlerte } from '../models/dashboard.js';
+import type { IncidentResume, MaterielParLocalisation, PieceAlerte } from '../models/dashboard.js';
 
 export type Compte = { cle: string; total: number };
 
@@ -27,6 +27,18 @@ export class DashboardRepository {
   async materielsParCategorie(): Promise<Compte[]> {
     const res = await pool.query<Compte>(
       'SELECT type_categorie AS cle, COUNT(*)::int AS total FROM materiels GROUP BY type_categorie',
+    );
+    return res.rows;
+  }
+
+  async materielsParLocalisation(): Promise<MaterielParLocalisation[]> {
+    const res = await pool.query<MaterielParLocalisation>(
+      `SELECT l.id_localisation, l.nom_service, l.code_bureau, l.ville,
+              COUNT(m.code_materiel)::int AS total
+         FROM localisations l
+         LEFT JOIN materiels m ON m.id_localisation = l.id_localisation
+        GROUP BY l.id_localisation, l.nom_service, l.code_bureau, l.ville
+        ORDER BY total DESC, l.nom_service`,
     );
     return res.rows;
   }

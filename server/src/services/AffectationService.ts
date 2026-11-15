@@ -49,6 +49,22 @@ export class AffectationService {
     return affectation;
   }
 
+  async genererBon(id: number): Promise<BonDecharge> {
+    await this.obtenir(id);
+    let numBon = await this.repo.findNumBonByAffectation(id);
+    if (!numBon) {
+      numBon = await withTransaction((client) => this.repo.insertBonTx(client, id));
+    }
+
+    try {
+      await this.bons.genererEtStocker(numBon);
+    } catch (err) {
+      console.error(`Échec de génération du PDF ${numBon} :`, err);
+    }
+
+    return this.bons.obtenir(numBon);
+  }
+
   async creer(dto: CreateAffectationDto): Promise<{ affectation: Affectation; bon: BonDecharge | null }> {
     const { idAffectation, numBon } = await withTransaction(async (client) => {
       const materiel = await this.repo.lockMaterielTx(client, dto.code_materiel);
@@ -64,7 +80,7 @@ export class AffectationService {
           `Une ${dto.type_mouvement.toLowerCase()} exige un matériel au statut ${regle.requis} (statut actuel : ${materiel.statut_materiel}).`,
         );
       }
-      if (dto.type_mouvement === 'MUTATION' && materiel.id_localisation === dto.id_localisation) {
+      if (dto.type_mouvement !== 'RESTITUTION' && materiel.id_localisation === dto.id_localisation) {
         throw new AppError(409, 'Le matériel se trouve déjà dans cette localisation.');
       }
 

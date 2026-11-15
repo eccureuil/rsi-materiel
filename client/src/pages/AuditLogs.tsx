@@ -4,10 +4,12 @@ import { extraireMessageErreur } from '@/api/client';
 import { useToast } from '@/components/Toast';
 import { useDebounce } from '@/hooks/useDebounce';
 import Pagination from '@/components/Pagination';
-import { Input } from '@/components/FormControls';
+import { ChampRecherche, ResumeFiltres, type FiltreActif } from '@/components/FormControls';
 import type { AuditLog } from '@/types/api';
 import { SkeletonTableau } from '@/components/Skeleton';
+import { BoutonIcone } from '@/components/BoutonIcone';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
+import { EnteteTableau, Tableau } from '@/components/Tableau';
 
 const LIMITE_AFFICHAGE_DETAILS = 200;
 
@@ -58,6 +60,22 @@ export default function AuditLogs() {
     });
   }, [logs, filtreMatriculeDebounce, filtreActionDebounce]);
 
+  const reinitialiserFiltres = () => {
+    setFiltreMatricule('');
+    setFiltreAction('');
+  };
+
+  const filtresResume: FiltreActif[] = [
+    ...(filtreMatricule.trim() ? [{
+      label: `Matricule : ${filtreMatricule.trim()}`,
+      onSupprimer: () => setFiltreMatricule(''),
+    }] : []),
+    ...(filtreAction.trim() ? [{
+      label: `Action : ${filtreAction.trim()}`,
+      onSupprimer: () => setFiltreAction(''),
+    }] : []),
+  ];
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -67,27 +85,31 @@ export default function AuditLogs() {
         </p>
       </div>
 
-      <div className="card flex flex-wrap gap-3 p-4">
-        <Input
-          placeholder="Matricule operateur (ex. ADM)..."
-          value={filtreMatricule}
-          onChange={(e) => setFiltreMatricule(e.target.value)}
-          className="max-w-xs"
+      <div className="card overflow-hidden">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <ChampRecherche
+            label="Matricule opérateur"
+            value={filtreMatricule}
+            onChange={setFiltreMatricule}
+            placeholder="Ex. ADM001…"
+            enveloppeClassName="w-full sm:max-w-xs"
+          />
+          <ChampRecherche
+            label="Action"
+            value={filtreAction}
+            onChange={setFiltreAction}
+            placeholder="Ex. CREATION…"
+            enveloppeClassName="w-full sm:max-w-sm"
+          />
+        </div>
+        <ResumeFiltres
+          filtres={filtresResume}
+          total={logsFiltres.length}
+          chargement={chargement}
+          onToutEffacer={reinitialiserFiltres}
+          unite="entrée(s)"
+          libelleChargement="Recherche…"
         />
-        <Input
-          placeholder="Action (ex. CREATION)..."
-          value={filtreAction}
-          onChange={(e) => setFiltreAction(e.target.value)}
-          className="max-w-sm"
-        />
-        {(filtreMatricule || filtreAction) && (
-          <button
-            className="btn-secondary"
-            onClick={() => { setFiltreMatricule(''); setFiltreAction(''); }}
-          >
-            Effacer
-          </button>
-        )}
       </div>
 
       <div className="card overflow-hidden">
@@ -105,46 +127,36 @@ export default function AuditLogs() {
             titre="Aucune entree ne correspond aux filtres"
             description="Aucun resultat sur cette page. Essayez un autre matricule, une autre action, ou changez de page."
             ctaLabel="Reinitialiser les filtres"
-            ctaOnClick={() => { setFiltreMatricule(''); setFiltreAction(''); }}
+            ctaOnClick={reinitialiserFiltres}
             filtreActif
           />
-        ) : (
-          <p className="p-4 text-sm text-slate-500">
-            Aucune entree ne correspond aux filtres sur cette page.
-          </p>
-        )}
+        ) : null}
         {!chargement && logsFiltres.length > 0 && (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                {['Date / heure', 'Operateur', 'Action', 'Details', ''].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
+          <Tableau>
+            <EnteteTableau colonnes={['Date / heure', 'Operateur', 'Action', 'Details', '']} />
+            <tbody>
               {logsFiltres.map((log) => (
-                <tr key={log.id_log} className="align-top hover:bg-slate-50">
-                  <td className="whitespace-nowrap px-4 py-3 text-xs text-slate-600">{log.date_heure}</td>
-                  <td className="px-4 py-3">
+                <tr key={log.id_log}>
+                  <td className="whitespace-nowrap text-xs text-slate-600">{log.date_heure}</td>
+                  <td>
                     <p className="font-medium text-slate-900">{log.prenom} {log.nom}</p>
                     <p className="text-xs text-slate-500">{log.matricule_operateur}</p>
                   </td>
-                  <td className="px-4 py-3">
+                  <td>
                     <span className="badge bg-slate-100 text-slate-800">{log.action_effectuee}</span>
                   </td>
-                  <td className="px-4 py-3 text-xs text-slate-700">
+                  <td className="text-xs text-slate-700">
                     {log.details_operation.length > LIMITE_AFFICHAGE_DETAILS
                       ? `${log.details_operation.slice(0, LIMITE_AFFICHAGE_DETAILS)}...`
                       : log.details_operation}
                   </td>
-                  <td className="px-4 py-3">
-                    <button className="btn-secondary" onClick={() => setLogDetail(log)}>Voir</button>
+                  <td>
+                    <BoutonIcone libelle="Voir le détail" icone="voir" onClick={() => setLogDetail(log)} />
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Tableau>
         )}
       </div>
 
@@ -166,9 +178,9 @@ export default function AuditLogs() {
               <p><span className="font-semibold">Action :</span> {logDetail.action_effectuee}</p>
               <div>
                 <p className="font-semibold">Details de l'operation :</p>
-                <pre className="mt-2 max-h-96 overflow-auto rounded-md bg-slate-50 p-3 text-xs text-slate-700">
-{logDetail.details_operation}
-                </pre>
+                <p className="mt-2 max-h-96 overflow-auto whitespace-pre-line rounded-md bg-slate-50 p-3 text-sm leading-relaxed text-slate-700">
+                  {logDetail.details_operation}
+                </p>
               </div>
             </div>
             <div className="flex justify-end border-t border-slate-200 px-6 py-3">

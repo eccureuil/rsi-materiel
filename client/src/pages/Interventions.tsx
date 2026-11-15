@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   imputerPiece, listerImputations, listerInterventions, listerPieces,
   modifierIntervention, obtenirIntervention, supprimerImputation, terminerIntervention,
@@ -10,16 +10,72 @@ import { useConfirm } from '@/components/ConfirmDialog';
 import Modal from '@/components/Modal';
 import Pagination from '@/components/Pagination';
 import Badge from '@/components/Badge';
-import { Champ, Input, Select, Textarea } from '@/components/FormControls';
+import {
+  Champ, ChampFiltre, IconeMaintenance, IconeStatut, IconeUtilisateur, Input, ResumeFiltres,
+  SectionFormulaire, Select, SelectFiltre, Textarea, type FiltreActif,
+} from '@/components/FormControls';
 import type {
   Imputation, Intervention, Piece, StatutMateriel, TypeMaintenance,
 } from '@/types/api';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTableau } from '@/components/Skeleton';
+import { BoutonIcone } from '@/components/BoutonIcone';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
+import { EnteteTableau, Tableau } from '@/components/Tableau';
 
 const TYPES_MAINT: TypeMaintenance[] = ['CORRECTIVE', 'PREVENTIVE'];
 const STATUTS_FINAUX: StatutMateriel[] = ['SERVICE', 'PANNE', 'REFORME'];
+
+const LIBELLE_TYPE: Record<TypeMaintenance, string> = {
+  CORRECTIVE: 'Corrective',
+  PREVENTIVE: 'Préventive',
+};
+
+function formatDateHeure(valeur: string | null): string {
+  if (!valeur) return '—';
+  const [date, heure] = valeur.split(' ');
+  const [annee, mois, jour] = date.split('-');
+  if (!annee || !mois || !jour) return valeur;
+  return `${jour}-${mois}-${annee}${heure ? ` ${heure.slice(0, 5)}` : ''}`;
+}
+
+function formatDuree(debut: string, fin: string | null): string {
+  const dateDebut = new Date(debut.replace(' ', 'T'));
+  const dateFin = fin ? new Date(fin.replace(' ', 'T')) : new Date();
+  const difference = dateFin.getTime() - dateDebut.getTime();
+  if (!Number.isFinite(difference) || difference < 0) return '—';
+  const minutesTotales = Math.floor(difference / 60000);
+  const jours = Math.floor(minutesTotales / 1440);
+  const heures = Math.floor((minutesTotales % 1440) / 60);
+  const minutes = minutesTotales % 60;
+  if (jours > 0) return `${jours} j ${heures} h`;
+  if (heures > 0) return `${heures} h ${String(minutes).padStart(2, '0')} min`;
+  return `${minutes} min`;
+}
+
+function initiales(prenom: string, nom: string): string {
+  return `${prenom.charAt(0)}${nom.charAt(0)}`.toUpperCase();
+}
+
+function CarteInfo({ label, valeur }: { label: string; valeur: ReactNode }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white/80 px-3.5 py-2.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{label}</p>
+      <div className="mt-1 text-sm font-medium text-slate-800">{valeur}</div>
+    </div>
+  );
+}
+
+function BlocTexte({ titre, contenu }: { titre: string; contenu: string | null }) {
+  return (
+    <div className="rounded-xl border border-slate-200 bg-white p-3.5">
+      <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">{titre}</p>
+      <p className={`mt-1.5 whitespace-pre-line text-sm leading-relaxed ${contenu ? 'text-slate-700' : 'italic text-slate-400'}`}>
+        {contenu || 'Non renseigné'}
+      </p>
+    </div>
+  );
+}
 
 export default function Interventions() {
   const { user, hasRole } = useAuth();
@@ -28,6 +84,7 @@ export default function Interventions() {
   const estCadre = hasRole('CADRE_MAINTENANCE');
 
   const [interventions, setInterventions] = useState<Intervention[]>([]);
+  const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [totalPages, setTotalPages] = useState(1);
   const [chargement, setChargement] = useState(false);
@@ -37,6 +94,31 @@ export default function Interventions() {
   const [filtreTerminee, setFiltreTerminee] = useState(searchParams.get('terminee') ?? '');
   const [mesInterventions, setMesInterventions] = useState(searchParams.get('mes_interventions') === 'true');
   const filtresActifs = filtreType !== '' || filtreTerminee !== '' || mesInterventions;
+
+  const reinitialiserFiltres = () => {
+    setFiltreType('');
+    setFiltreTerminee('');
+    setMesInterventions(false);
+    setPage(1);
+  };
+
+  const libelleTerminee = filtreTerminee === 'true' ? 'Terminées'
+    : filtreTerminee === 'false' ? 'En cours' : '';
+
+  const filtresResume: FiltreActif[] = [
+    ...(filtreType ? [{
+      label: `Type : ${LIBELLE_TYPE[filtreType as TypeMaintenance] ?? filtreType}`,
+      onSupprimer: () => { setFiltreType(''); setPage(1); },
+    }] : []),
+    ...(libelleTerminee ? [{
+      label: `État : ${libelleTerminee}`,
+      onSupprimer: () => { setFiltreTerminee(''); setPage(1); },
+    }] : []),
+    ...(mesInterventions ? [{
+      label: 'Mes interventions uniquement',
+      onSupprimer: () => { setMesInterventions(false); setPage(1); },
+    }] : []),
+  ];
 
   const [fiche, setFiche] = useState<Intervention | null>(null);
   const [imputations, setImputations] = useState<Imputation[]>([]);
@@ -64,6 +146,7 @@ export default function Interventions() {
         page, limit: 20,
       });
       setInterventions(res.items);
+      setTotal(res.total);
       setTotalPages(res.totalPages);
     } catch (err) { toast.erreur('Chargement impossible', extraireMessageErreur(err)); }
     finally { setChargement(false); }
@@ -174,30 +257,59 @@ export default function Interventions() {
         <h1 className="text-2xl font-semibold text-slate-900">Interventions</h1>
       </div>
 
-      <div className="card flex flex-wrap gap-3 p-4">
-        <Select value={filtreType}
-          onChange={(e) => { setFiltreType(e.target.value); setPage(1); }} className="max-w-xs">
-          <option value="">Tous types</option>
-          {TYPES_MAINT.map((t) => <option key={t} value={t}>{t}</option>)}
-        </Select>
-        <Select value={filtreTerminee}
-          onChange={(e) => { setFiltreTerminee(e.target.value); setPage(1); }} className="max-w-xs">
-          <option value="">Toutes</option>
-          <option value="true">Terminées</option>
-          <option value="false">En cours</option>
-        </Select>
-        {estCadre && (
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input type="checkbox" checked={mesInterventions}
-              onChange={(e) => { setMesInterventions(e.target.checked); setPage(1); }} />
-            Mes interventions
-          </label>
-        )}
+      <div className="card">
+        <div className="flex flex-wrap items-end gap-3 p-4">
+          <SelectFiltre
+            id="filtre-type"
+            label="Type de maintenance"
+            icone={<IconeMaintenance />}
+            value={filtreType}
+            onChange={(valeur) => { setFiltreType(valeur); setPage(1); }}
+            enveloppeClassName="w-full sm:max-w-xs"
+            options={[
+              { value: '', label: 'Tous les types' },
+              ...TYPES_MAINT.map((t) => ({ value: t, label: LIBELLE_TYPE[t] })),
+            ]}
+          />
+          <SelectFiltre
+            id="filtre-terminee"
+            label="État"
+            icone={<IconeStatut />}
+            value={filtreTerminee}
+            onChange={(valeur) => { setFiltreTerminee(valeur); setPage(1); }}
+            enveloppeClassName="w-full sm:max-w-xs"
+            options={[
+              { value: '', label: 'Toutes' },
+              { value: 'true', label: 'Terminées' },
+              { value: 'false', label: 'En cours' },
+            ]}
+          />
+          {estCadre && (
+            <ChampFiltre label="Périmètre" icone={<IconeUtilisateur />} className="w-full sm:w-auto">
+              <label className="flex h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-sm text-slate-700">
+                <input
+                  type="checkbox"
+                  checked={mesInterventions}
+                  onChange={(e) => { setMesInterventions(e.target.checked); setPage(1); }}
+                  className="case"
+                />
+                Mes interventions
+              </label>
+            </ChampFiltre>
+          )}
+        </div>
+        <ResumeFiltres
+          filtres={filtresResume}
+          total={total}
+          chargement={chargement}
+          onToutEffacer={reinitialiserFiltres}
+          libelleChargement="Recherche…"
+        />
       </div>
 
       <div className="card overflow-hidden">
         {chargement ? (
-          <SkeletonTableau lignes={5} colonnes={7} />
+          <SkeletonTableau lignes={5} colonnes={6} />
         ) : interventions.length === 0 ? (
           <EmptyState
             icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Outil />}
@@ -209,45 +321,40 @@ export default function Interventions() {
             }
             ctaLabel={filtresActifs ? undefined : 'Voir les declarations de pannes'}
             lienTo={filtresActifs ? undefined : '/pannes'}
-            ctaOnClick={filtresActifs ? () => { setFiltreType(''); setFiltreTerminee(''); setMesInterventions(false); } : undefined}
+            ctaOnClick={filtresActifs ? reinitialiserFiltres : undefined}
             filtreActif={filtresActifs}
           />
         ) : (
-          <table className="min-w-full divide-y divide-slate-200 text-sm">
-            <thead className="bg-slate-50">
-              <tr>
-                {['N°', 'Incident', 'Type', 'Intervenants', 'Début', 'Fin', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left font-semibold text-slate-600">{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 bg-white">
+          <Tableau>
+            <EnteteTableau colonnes={['N°', 'Incident', 'Type', 'Début', 'Fin', 'Actions']} />
+            <tbody>
               {interventions.map((i) => (
-                <tr key={i.num_intervention} className="hover:bg-slate-50">
-                  <td className="px-4 py-3 font-medium">{i.num_intervention}</td>
-                  <td className="px-4 py-3">{i.num_incident}</td>
-                  <td className="px-4 py-3"><Badge valeur={i.type_maintenance} /></td>
-                  <td className="px-4 py-3">
-                    {(i.intervenants ?? []).map((x) => `${x.prenom} ${x.nom}`).join(', ') || '—'}
-                  </td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{i.date_debut}</td>
-                  <td className="px-4 py-3 text-xs text-slate-600">{i.date_fin ?? '—'}</td>
-                  <td className="px-4 py-3">
-                    <button className="btn-secondary" onClick={() => void ouvrirFiche(i.num_intervention)}>
-                      Voir la fiche
-                    </button>
+                <tr key={i.num_intervention}>
+                  <td className="font-medium">{i.num_intervention}</td>
+                  <td>{i.num_incident}</td>
+                  <td><Badge valeur={i.type_maintenance} /></td>
+                  <td className="text-xs text-slate-600">{formatDateHeure(i.date_debut)}</td>
+                  <td className="text-xs text-slate-600">{i.date_fin ? formatDateHeure(i.date_fin) : '—'}</td>
+                  <td>
+                    <BoutonIcone
+                      libelle={i.date_fin === null ? 'Voir la fiche de l’intervention en cours' : 'Voir la fiche d’intervention'}
+                      icone="voir"
+                      className={i.date_fin === null ? 'bouton-en-cours' : undefined}
+                      onClick={() => void ouvrirFiche(i.num_intervention)}
+                    />
                   </td>
                 </tr>
               ))}
             </tbody>
-          </table>
+          </Tableau>
         )}
       </div>
 
       <Pagination page={page} totalPages={totalPages} onChange={setPage} />
 
       <Modal ouvert={fiche !== null}
-        titre={fiche ? `Fiche ${fiche.num_intervention}` : ''}
+        surtitre="Suivi maintenance"
+        titre="Fiche d’intervention"
         onFermer={fermerFiche}
         piedDePage={
           <>
@@ -260,84 +367,131 @@ export default function Interventions() {
           </>
         }>
         {fiche && (
-          <div className="space-y-4">
-            <div className="grid grid-cols-2 gap-3 text-sm">
-              <p><span className="font-semibold">Incident :</span> {fiche.num_incident}</p>
-              <p><span className="font-semibold">Type :</span> {fiche.type_maintenance}</p>
-              <p><span className="font-semibold">Début :</span> {fiche.date_debut}</p>
-              <p><span className="font-semibold">Fin :</span> {fiche.date_fin ?? '—'}</p>
-            </div>
-
-            <div>
-              <p className="mb-1 text-sm font-semibold text-slate-700">Intervenants</p>
-              <ul className="list-disc pl-5 text-sm text-slate-700">
-                {(fiche.intervenants ?? []).map((x) => (
-                  <li key={x.matricule_cadre}>
-                    {x.prenom} {x.nom} — {x.specialite} ({x.matricule_cadre})
-                  </li>
-                ))}
-              </ul>
-            </div>
-
-            {peutAgir(fiche) ? (
-              <div className="space-y-3">
-                <Champ label="Diagnostic">
-                  <Textarea rows={3} value={diagEdit} onChange={(e) => setDiagEdit(e.target.value)} />
-                </Champ>
-                <Champ label="Travaux réalisés">
-                  <Textarea rows={3} value={travauxEdit} onChange={(e) => setTravauxEdit(e.target.value)} />
-                </Champ>
-                <div className="flex justify-end">
-                  <button type="button" className="btn-primary" disabled={envoi}
-                    onClick={() => void enregistrerDiagTravaux()}>
-                    {envoi ? 'Enregistrement…' : 'Enregistrer diagnostic/travaux'}
-                  </button>
+          <div className="space-y-5">
+            <div className="overflow-hidden rounded-2xl bg-gradient-to-br from-asecna-bleu to-asecna-clair p-5 text-white shadow-sm">
+              <div className="flex flex-wrap items-start justify-between gap-4">
+                <div className="min-w-0">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-white/60">
+                    Intervention {fiche.date_fin ? 'terminée' : 'en cours'}
+                  </p>
+                  <div className="mt-1.5 flex flex-wrap items-center gap-2">
+                    <h3 className="text-xl font-semibold">{fiche.num_intervention}</h3>
+                    <span className="rounded-full bg-white/10 px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ring-white/20">
+                      {LIBELLE_TYPE[fiche.type_maintenance]}
+                    </span>
+                    <span
+                      className={`rounded-full px-2.5 py-0.5 text-xs font-medium ring-1 ring-inset ${
+                        fiche.date_fin
+                          ? 'bg-emerald-400/15 text-emerald-100 ring-emerald-300/30'
+                          : 'bg-amber-400/15 text-amber-100 ring-amber-300/30'
+                      }`}
+                    >
+                      {fiche.date_fin ? 'Terminée' : 'En cours'}
+                    </span>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white/10 px-4 py-3 text-right ring-1 ring-inset ring-white/15">
+                  <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-white/60">
+                    {fiche.date_fin ? 'Durée' : 'Durée écoulée'}
+                  </p>
+                  <p className="mt-1 text-lg font-semibold">{formatDuree(fiche.date_debut, fiche.date_fin)}</p>
                 </div>
               </div>
-            ) : (
-              <div className="space-y-2 text-sm">
-                <p><span className="font-semibold">Diagnostic :</span> {fiche.diagnostic ?? '—'}</p>
-                <p><span className="font-semibold">Travaux réalisés :</span> {fiche.travaux_realises ?? '—'}</p>
-              </div>
-            )}
+            </div>
 
-            <div>
-              <p className="mb-2 text-sm font-semibold text-slate-700">Pièces imputées</p>
-              {imputations.length === 0 && <p className="text-sm text-slate-500">Aucune pièce imputée.</p>}
-              {imputations.length > 0 && (
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b border-slate-200 text-left text-slate-600">
-                      <th className="py-2">Référence</th>
-                      <th className="py-2">Désignation</th>
-                      <th className="py-2">Quantité</th>
-                      <th className="py-2">Date</th>
-                      {peutAgir(fiche) && <th className="py-2">Actions</th>}
-                    </tr>
-                  </thead>
+            <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-4">
+              <CarteInfo label="Début" valeur={formatDateHeure(fiche.date_debut)} />
+              <CarteInfo label="Fin" valeur={fiche.date_fin ? formatDateHeure(fiche.date_fin) : 'En cours'} />
+              <CarteInfo label="Incident" valeur={fiche.num_incident} />
+              <CarteInfo label="Matériel" valeur={fiche.code_materiel ?? '—'} />
+            </div>
+
+            <SectionFormulaire
+              titre="Intervenants"
+              description={`${(fiche.intervenants ?? []).length} cadre(s) affecté(s)`}
+            >
+              {(fiche.intervenants ?? []).length === 0 ? (
+                <p className="text-sm italic text-slate-400">Aucun intervenant affecté.</p>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-2">
+                  {(fiche.intervenants ?? []).map((x) => (
+                    <div key={x.matricule_cadre} className="flex items-center gap-3 rounded-xl border border-slate-200 bg-white p-3">
+                      <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-asecna-bleu/10 text-xs font-semibold text-asecna-bleu">
+                        {initiales(x.prenom, x.nom)}
+                      </span>
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-800">{x.prenom} {x.nom}</p>
+                        <p className="truncate text-xs text-slate-500">{x.specialite} · {x.matricule_cadre}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </SectionFormulaire>
+
+            <SectionFormulaire titre="Compte rendu">
+              {peutAgir(fiche) ? (
+                <div className="space-y-3">
+                  <Champ label="Diagnostic" optionnel>
+                    <Textarea rows={3} value={diagEdit} onChange={(e) => setDiagEdit(e.target.value)} />
+                  </Champ>
+                  <Champ label="Travaux réalisés" optionnel>
+                    <Textarea rows={3} value={travauxEdit} onChange={(e) => setTravauxEdit(e.target.value)} />
+                  </Champ>
+                  <div className="flex justify-end">
+                    <button type="button" className="btn-primary" disabled={envoi}
+                      onClick={() => void enregistrerDiagTravaux()}>
+                      {envoi ? 'Enregistrement…' : 'Enregistrer diagnostic/travaux'}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <BlocTexte titre="Diagnostic" contenu={fiche.diagnostic} />
+                  <BlocTexte titre="Travaux réalisés" contenu={fiche.travaux_realises} />
+                </div>
+              )}
+            </SectionFormulaire>
+
+            <SectionFormulaire
+              titre="Pièces imputées"
+              description={`${imputations.length} imputation(s)`}
+            >
+              {imputations.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-white/60 px-4 py-6 text-center">
+                  <p className="text-sm font-medium text-slate-600">Aucune pièce imputée</p>
+                  <p className="mt-1 text-xs text-slate-400">Les pièces utilisées apparaîtront ici.</p>
+                </div>
+              ) : (
+                <Tableau>
+                  <EnteteTableau
+                    colonnes={
+                      peutAgir(fiche)
+                        ? ['Référence', 'Désignation', 'Quantité', 'Date', 'Actions']
+                        : ['Référence', 'Désignation', 'Quantité', 'Date']
+                    }
+                  />
                   <tbody>
                     {imputations.map((imp) => (
-                      <tr key={imp.id_imputation} className="border-b border-slate-100">
-                        <td className="py-2">{imp.ref_piece}</td>
-                        <td className="py-2">{imp.designation ?? '—'}</td>
-                        <td className="py-2">{imp.quantite_utilisee}</td>
-                        <td className="py-2 text-xs text-slate-600">{imp.date_imputation}</td>
+                      <tr key={imp.id_imputation}>
+                        <td>{imp.ref_piece}</td>
+                        <td>{imp.designation ?? '—'}</td>
+                        <td>{imp.quantite_utilisee}</td>
+                        <td className="text-xs text-slate-600">{formatDateHeure(imp.date_imputation)}</td>
                         {peutAgir(fiche) && (
-                          <td className="py-2">
-                            <button className="btn-danger" onClick={() => void retirerImputation(imp.id_imputation)}>
-                              Retirer
-                            </button>
+                          <td>
+                            <BoutonIcone libelle="Retirer la pièce imputée" icone="retirer" variante="danger" onClick={() => void retirerImputation(imp.id_imputation)} />
                           </td>
                         )}
                       </tr>
                     ))}
                   </tbody>
-                </table>
+                </Tableau>
               )}
 
               {peutAgir(fiche) && (
-                <form onSubmit={imputer} className="mt-3 flex flex-wrap items-end gap-3 rounded-md bg-slate-50 p-3">
-                  <Champ label="Pièce">
+                <form onSubmit={imputer} className="mt-3 grid gap-3 rounded-xl border border-slate-200 bg-white p-3.5 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-end">
+                  <Champ label="Pièce" requis>
                     <Select required value={imputRef} onChange={(e) => setImputRef(e.target.value)}>
                       <option value="">— Choisir —</option>
                       {pieces.map((p) => (
@@ -347,14 +501,14 @@ export default function Interventions() {
                       ))}
                     </Select>
                   </Champ>
-                  <Champ label="Quantité">
+                  <Champ label="Quantité" requis>
                     <Input type="number" min={1} max={pieceSelectionnee?.quantite_en_stock ?? undefined}
                       value={imputQte} onChange={(e) => setImputQte(Number(e.target.value))} />
                   </Champ>
-                  <button type="submit" className="btn-primary" disabled={envoi || !imputRef}>Imputer</button>
+                  <button type="submit" className="btn-primary h-11" disabled={envoi || !imputRef}>Imputer</button>
                 </form>
               )}
-            </div>
+            </SectionFormulaire>
           </div>
         )}
       </Modal>
@@ -369,14 +523,14 @@ export default function Interventions() {
             </button>
           </>
         }>
-        <form id="form-terminer" onSubmit={terminer} className="space-y-4">
-          <Champ label="Diagnostic (optionnel)">
+        <form id="form-terminer" onSubmit={terminer} className="space-y-5">
+          <Champ label="Diagnostic" optionnel>
             <Textarea rows={3} value={termDiag} onChange={(e) => setTermDiag(e.target.value)} />
           </Champ>
-          <Champ label="Travaux réalisés *">
+          <Champ label="Travaux réalisés" requis>
             <Textarea required rows={3} value={termTravaux} onChange={(e) => setTermTravaux(e.target.value)} />
           </Champ>
-          <Champ label="Statut final du matériel *">
+          <Champ label="Statut final du matériel" requis>
             <Select required value={termStatut}
               onChange={(e) => setTermStatut(e.target.value as StatutMateriel)}>
               {STATUTS_FINAUX.map((s) => <option key={s} value={s}>{s}</option>)}

@@ -81,6 +81,8 @@ CREATE TABLE materiels (
     type_equipement   VARCHAR(50) NULL,
     systeme_aviation  VARCHAR(50) NULL,
     id_localisation   INT         NOT NULL
+        REFERENCES localisations(id_localisation),
+    id_localisation_origine INT   NOT NULL
         REFERENCES localisations(id_localisation)
 );
 
@@ -91,6 +93,7 @@ CREATE TABLE affectations (
     id_affectation      SERIAL       PRIMARY KEY,
     code_materiel       VARCHAR(30)  NOT NULL REFERENCES materiels(code_materiel),
     id_localisation     INT          NOT NULL REFERENCES localisations(id_localisation),
+    id_localisation_origine INT      NULL REFERENCES localisations(id_localisation),
     date_mouvement      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     type_mouvement      VARCHAR(30)  NOT NULL
         CHECK (type_mouvement IN ('AFFECTATION', 'MUTATION', 'RESTITUTION')),
@@ -189,10 +192,12 @@ CREATE TABLE journal_audit (
 -- Index (cles etrangeres et colonnes de recherche frequentes)
 -- ---------------------------------------------------------------------
 CREATE INDEX idx_materiels_localisation    ON materiels(id_localisation);
+CREATE INDEX idx_materiels_origine         ON materiels(id_localisation_origine);
 CREATE INDEX idx_materiels_statut          ON materiels(statut_materiel);
 CREATE INDEX idx_materiels_categorie       ON materiels(type_categorie);
 CREATE INDEX idx_affectations_materiel     ON affectations(code_materiel);
 CREATE INDEX idx_affectations_localisation ON affectations(id_localisation);
+CREATE INDEX idx_affectations_origine      ON affectations(id_localisation_origine);
 CREATE INDEX idx_pannes_materiel           ON pannes_incidents(code_materiel);
 CREATE INDEX idx_pannes_declarant          ON pannes_incidents(matricule_declarant);
 CREATE INDEX idx_pannes_statut             ON pannes_incidents(statut_incident);

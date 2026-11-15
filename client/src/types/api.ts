@@ -59,6 +59,12 @@ export interface LocalisationInput {
 export type StatutMateriel = 'STOCK' | 'SERVICE' | 'PANNE' | 'MAINTENANCE' | 'REFORME';
 export type TypeCategorie = 'BUREAUTIQUE' | 'OPERATIONNEL';
 
+export const STATUTS_DECLARATION_PANNE: StatutMateriel[] = ['STOCK', 'SERVICE', 'MAINTENANCE'];
+
+export function peutDeclarerPanne(statut: StatutMateriel): boolean {
+  return STATUTS_DECLARATION_PANNE.includes(statut);
+}
+
 export interface Materiel {
   code_materiel: string;
   num_serie: string | null;
@@ -74,6 +80,10 @@ export interface Materiel {
   nom_service?: string;
   code_bureau?: string | null;
   ville?: string;
+  id_localisation_origine: number;
+  origine_nom_service?: string;
+  origine_code_bureau?: string | null;
+  origine_ville?: string;
 }
 
 export interface MaterielInput {
@@ -82,15 +92,14 @@ export interface MaterielInput {
   marque?: string;
   modele?: string;
   date_acquisition: string;
-  statut_materiel?: StatutMateriel;
   caracteristiques?: string;
   type_categorie: TypeCategorie;
   type_equipement?: string;
   systeme_aviation?: string;
-  id_localisation: number;
+  id_localisation_origine: number;
 }
 
-export type MaterielUpdateInput = Omit<MaterielInput, 'code_materiel'>;
+export type MaterielUpdateInput = Omit<MaterielInput, 'code_materiel' | 'id_localisation_origine'>;
 
 export type StatutIncident = 'DECLARE' | 'PRISE_EN_CHARGE' | 'EN_COURS' | 'RESOLU' | 'CLOTURE' | 'REJETE';
 export type DegreUrgence = 'FAIBLE' | 'MOYEN' | 'URGENT' | 'CRITIQUE';
@@ -226,12 +235,21 @@ export type PieceAlerte = {
   seuil_minimum: number;
 };
 
+export type MaterielParLocalisation = {
+  id_localisation: number;
+  nom_service: string;
+  code_bureau: string | null;
+  ville: string;
+  total: number;
+};
+
 export type DashboardStats = {
   genere_le: string;
   materiels: {
     total: number;
     par_statut: Record<StatutMateriel, number>;
     par_categorie: Record<TypeCategorie, number>;
+    par_localisation: MaterielParLocalisation[];
   };
   incidents: {
     ouverts: number;

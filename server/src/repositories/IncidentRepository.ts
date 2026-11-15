@@ -6,7 +6,7 @@ import type {
   ListIncidentsQuery,
   StatutIncident,
 } from '../models/incident.js';
-import type { StatutMateriel } from '../models/materiel.js';
+import type { StatutMateriel, TypeCategorie } from '../models/materiel.js';
 
 const SELECT_INCIDENT = `
   SELECT i.num_incident, i.code_materiel, m.marque, m.modele, m.type_categorie,
@@ -123,12 +123,18 @@ export class IncidentRepository {
     ]);
   }
 
-  async getMaterielStatutTx(client: PoolClient, code: string): Promise<StatutMateriel | null> {
-    const res = await client.query<{ statut_materiel: StatutMateriel }>(
-      'SELECT statut_materiel FROM materiels WHERE code_materiel = $1 FOR UPDATE',
+  async getMaterielPourDeclarationTx(
+    client: PoolClient,
+    code: string,
+  ): Promise<{ statut_materiel: StatutMateriel; type_categorie: TypeCategorie } | null> {
+    const res = await client.query<{
+      statut_materiel: StatutMateriel;
+      type_categorie: TypeCategorie;
+    }>(
+      'SELECT statut_materiel, type_categorie FROM materiels WHERE code_materiel = $1 FOR UPDATE',
       [code],
     );
-    return res.rows[0]?.statut_materiel ?? null;
+    return res.rows[0] ?? null;
   }
 
   // Si `siActuel` est fourni, le changement n'a lieu que si le statut courant correspond.

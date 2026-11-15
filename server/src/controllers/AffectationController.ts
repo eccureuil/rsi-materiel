@@ -20,4 +20,9 @@ export class AffectationController {
     const dto = createAffectationSchema.parse(req.body);
     res.status(201).json(await this.service.creer(dto));
   };
+
+  genererBon = async (req: Request, res: Response): Promise<void> => {
+    const { id } = idParamSchema.parse(req.params);
+    res.status(201).json({ bon: await this.service.genererBon(id) });
+  };
 }

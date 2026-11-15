@@ -1,14 +1,26 @@
 import { pool } from '../config/database.js';
-import type { ListMaterielsQuery, Materiel, MaterielDto } from '../models/materiel.js';
+import type {
+  CreateMaterielDto,
+  ListMaterielsQuery,
+  Materiel,
+  MaterielDto,
+} from '../models/materiel.js';
 
 const SELECT_MATERIEL = `
   SELECT m.code_materiel, m.num_serie, m.marque, m.modele,
          to_char(m.date_acquisition, 'YYYY-MM-DD') AS date_acquisition,
          m.statut_materiel, m.caracteristiques, m.type_categorie,
          m.type_equipement, m.systeme_aviation,
-         m.id_localisation, l.nom_service, l.code_bureau, l.ville
+         m.id_localisation, l.nom_service, l.code_bureau, l.ville,
+         m.id_localisation_origine,
+         lo.nom_service AS origine_nom_service,
+         lo.code_bureau AS origine_code_bureau,
+         lo.ville AS origine_ville
     FROM materiels m
-    JOIN localisations l ON l.id_localisation = m.id_localisation`;
+    JOIN localisations l ON l.id_localisation = m.id_localisation
+    JOIN localisations lo ON lo.id_localisation = m.id_localisation_origine`;
+
+type MaterielCreation = Omit<CreateMaterielDto, 'code_materiel'>;
 
 function valeursEditables(dto: MaterielDto): unknown[] {
   return [
@@ -16,12 +28,24 @@ function valeursEditables(dto: MaterielDto): unknown[] {
     dto.marque,
     dto.modele,
     dto.date_acquisition,
-    dto.statut_materiel,
     dto.caracteristiques,
     dto.type_categorie,
     dto.type_equipement,
     dto.systeme_aviation,
-    dto.id_localisation,
+  ];
+}
+
+function valeursCreation(dto: MaterielCreation): unknown[] {
+  return [
+    dto.num_serie,
+    dto.marque,
+    dto.modele,
+    dto.date_acquisition,
+    dto.caracteristiques,
+    dto.type_categorie,
+    dto.type_equipement,
+    dto.systeme_aviation,
+    dto.id_localisation_origine,
   ];
 }
 
@@ -69,13 +93,14 @@ export class MaterielRepository {
     return res.rows[0] ?? null;
   }
 
-  async create(code: string, dto: MaterielDto): Promise<void> {
+  async create(code: string, dto: MaterielCreation): Promise<void> {
     await pool.query(
       `INSERT INTO materiels
          (code_materiel, num_serie, marque, modele, date_acquisition, statut_materiel,
-          caracteristiques, type_categorie, type_equipement, systeme_aviation, id_localisation)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)`,
-      [code, ...valeursEditables(dto)],
+          caracteristiques, type_categorie, type_equipement, systeme_aviation,
+          id_localisation, id_localisation_origine)
+       VALUES ($1, $2, $3, $4, $5, 'STOCK', $6, $7, $8, $9, $10, $10)`,
+      [code, ...valeursCreation(dto)],
     );
   }
 
@@ -83,8 +108,8 @@ export class MaterielRepository {
     const res = await pool.query(
       `UPDATE materiels
           SET num_serie = $2, marque = $3, modele = $4, date_acquisition = $5,
-              statut_materiel = $6, caracteristiques = $7, type_categorie = $8,
-              type_equipement = $9, systeme_aviation = $10, id_localisation = $11
+              caracteristiques = $6, type_categorie = $7, type_equipement = $8,
+              systeme_aviation = $9
         WHERE code_materiel = $1`,
       [code, ...valeursEditables(dto)],
     );
