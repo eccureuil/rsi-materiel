@@ -101,9 +101,15 @@ export default function DeclarationsPannes() {
   const [totalPages, setTotalPages] = useState(1);
   const [chargement, setChargement] = useState(false);
 
-  const [filtreStatut, setFiltreStatut] = useState('');
-  const [filtreUrgence, setFiltreUrgence] = useState('');
-  const [q, setQ] = useState('');
+  const [filtreStatut, setFiltreStatut] = useState(() => {
+    const valeur = searchParams.get('statut_incident') ?? '';
+    return STATUTS.includes(valeur) ? valeur : '';
+  });
+  const [filtreUrgence, setFiltreUrgence] = useState(() => {
+    const valeur = searchParams.get('degre_urgence') ?? '';
+    return URGENCES.includes(valeur as DegreUrgence) ? valeur : '';
+  });
+  const [q, setQ] = useState(searchParams.get('q') ?? '');
   const qDebounce = useDebounce(q, 300);
 
   const [modalDeclaration, setModalDeclaration] = useState(false);
@@ -146,6 +152,15 @@ export default function DeclarationsPannes() {
   }, [qDebounce, filtreStatut, filtreUrgence, page, toast]);
 
   useEffect(() => { void charger(); }, [charger]);
+
+  useEffect(() => {
+    const statut = searchParams.get('statut_incident') ?? '';
+    const urgence = searchParams.get('degre_urgence') ?? '';
+    setFiltreStatut(STATUTS.includes(statut) ? statut : '');
+    setFiltreUrgence(URGENCES.includes(urgence as DegreUrgence) ? urgence : '');
+    setQ(searchParams.get('q') ?? '');
+    setPage(1);
+  }, [searchParams]);
 
   useEffect(() => {
     const code = searchParams.get('materiel');

@@ -266,7 +266,6 @@ export function SelectFiltre({
 
   const choisir = (option: OptionSelectFiltre) => {
     onChange(option.value);
-    setInvalide(false);
     setOuvert(false);
     boutonRef.current?.focus();
   };
@@ -330,7 +329,7 @@ export function SelectFiltre({
         aria-expanded={ouvert}
         aria-controls={listeId}
         aria-activedescendant={ouvert && indexActif >= 0 ? `${champId}-option-${indexActif}` : undefined}
-        aria-label={label}
+        aria-label={label ?? placeholder}
         aria-describedby={ariaDescribedby}
         aria-required={required || undefined}
         aria-invalid={invalide || undefined}
@@ -361,7 +360,9 @@ export function SelectFiltre({
           }}
         >
           {options.map((option, index) => (
-            <option key={`${option.value}-${index}`} value={option.value}>{option.label}</option>
+            <option key={`${option.value}-${index}`} value={option.value}>
+              {option.label}
+            </option>
           ))}
         </select>
       )}

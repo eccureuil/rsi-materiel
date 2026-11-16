@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState, type FormEvent } from 'react';
+﻿import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   changerStatutUtilisateur, creerUtilisateur, listerUtilisateurs,
   modifierUtilisateur, reinitialiserMotDePasse,
@@ -150,7 +150,7 @@ export default function GestionUtilisateurs() {
     const v = validerMotDePasse(formCreation.mot_de_passe);
     if (!v.valide) { toast.erreur('Mot de passe invalide', v.erreurs.join(' ')); return; }
     if (formCreation.role === 'CADRE_MAINTENANCE' && !formCreation.specialite.trim()) {
-      toast.erreur('Specialite requise', 'Un cadre doit avoir une specialite.'); return;
+      toast.erreur('Spécialité requise', 'Un cadre doit avoir une spécialité.'); return;
     }
     setEnvoi(true);
     try {
@@ -163,14 +163,16 @@ export default function GestionUtilisateurs() {
         specialite: formCreation.role === 'CADRE_MAINTENANCE'
           ? formCreation.specialite.trim()
           : formCreation.specialite.trim() || undefined,
-        niveau_privilege: formCreation.niveau_privilege.trim() || undefined,
+        niveau_privilege: formCreation.role === 'ADMINISTRATEUR'
+          ? formCreation.niveau_privilege.trim() || undefined
+          : undefined,
       };
       await creerUtilisateur(input);
-      toast.succes('Compte cree', `${input.matricule} (${input.role}) a ete cree.`);
+      toast.succes('Compte créé', `${input.matricule} (${input.role}) a été créé.`);
       setModalCreation(false);
       await charger();
     } catch (err) {
-      toast.erreur('Creation refusee', extraireMessageErreur(err));
+      toast.erreur('Création refusée', extraireMessageErreur(err));
     } finally {
       setEnvoi(false);
     }
@@ -180,7 +182,7 @@ export default function GestionUtilisateurs() {
     e.preventDefault();
     if (!modalEdition) return;
     if (modalEdition.role === 'CADRE_MAINTENANCE' && !formEdition.specialite.trim()) {
-      toast.erreur('Specialite requise', 'Un cadre doit avoir une specialite.'); return;
+      toast.erreur('Spécialité requise', 'Un cadre doit avoir une spécialité.'); return;
     }
     setEnvoi(true);
     try {
@@ -190,14 +192,16 @@ export default function GestionUtilisateurs() {
         specialite: modalEdition.role === 'CADRE_MAINTENANCE'
           ? formEdition.specialite.trim()
           : formEdition.specialite.trim() || undefined,
-        niveau_privilege: formEdition.niveau_privilege.trim() || undefined,
+        niveau_privilege: modalEdition.role === 'ADMINISTRATEUR'
+          ? formEdition.niveau_privilege.trim() || undefined
+          : undefined,
       };
       await modifierUtilisateur(modalEdition.matricule, input);
-      toast.succes('Compte modifie', `${modalEdition.matricule} a ete mis a jour.`);
+      toast.succes('Compte modifié', `${modalEdition.matricule} a été mis à jour.`);
       setModalEdition(null);
       await charger();
     } catch (err) {
-      toast.erreur('Modification refusee', extraireMessageErreur(err));
+      toast.erreur('Modification refusée', extraireMessageErreur(err));
     } finally {
       setEnvoi(false);
     }
@@ -205,23 +209,23 @@ export default function GestionUtilisateurs() {
 
   const basculerStatut = async (u: UtilisateurComplet) => {
     if (user?.matricule === u.matricule) {
-      toast.avertissement('Action interdite', 'Vous ne pouvez pas desactiver votre propre compte.');
+      toast.avertissement('Action interdite', 'Vous ne pouvez pas désactiver votre propre compte.');
       return;
     }
     const nouveau: StatutUtilisateur = u.statut_compte === 'ACTIF' ? 'INACTIF' : 'ACTIF';
     const ok = await confirmer({
-      titre: nouveau === 'INACTIF' ? 'Desactiver ce compte ?' : 'Reactiver ce compte ?',
+      titre: nouveau === 'INACTIF' ? 'Désactiver ce compte ?' : 'Réactiver ce compte ?',
       message: nouveau === 'INACTIF'
         ? `${u.prenom} ${u.nom} (${u.matricule}) ne pourra plus se connecter.`
         : `${u.prenom} ${u.nom} (${u.matricule}) pourra de nouveau se connecter.`,
-      libelleConfirmer: nouveau === 'INACTIF' ? 'Desactiver' : 'Reactiver',
+      libelleConfirmer: nouveau === 'INACTIF' ? 'Désactiver' : 'Réactiver',
       ton: nouveau === 'INACTIF' ? 'danger' : 'primaire',
     });
     if (!ok) return;
     try {
       await changerStatutUtilisateur(u.matricule, nouveau);
       toast.succes(
-        nouveau === 'INACTIF' ? 'Compte desactive' : 'Compte reactive',
+        nouveau === 'INACTIF' ? 'Compte désactivé' : 'Compte réactivé',
         `${u.matricule} est maintenant ${nouveau}.`,
       );
       await charger();
@@ -238,10 +242,10 @@ export default function GestionUtilisateurs() {
     setEnvoi(true);
     try {
       await reinitialiserMotDePasse(modalReset.matricule, { nouveau_mot_de_passe: nouveauMdp });
-      toast.succes('Mot de passe reinitialise', `Le mot de passe de ${modalReset.matricule} a ete modifie.`);
+      toast.succes('Mot de passe réinitialisé', `Le mot de passe de ${modalReset.matricule} a été modifié.`);
       setModalReset(null);
     } catch (err) {
-      toast.erreur('Reinitialisation refusee', extraireMessageErreur(err));
+      toast.erreur('Réinitialisation refusée', extraireMessageErreur(err));
     } finally {
       setEnvoi(false);
     }
@@ -307,8 +311,8 @@ export default function GestionUtilisateurs() {
             titre={filtresActifs ? 'Aucun utilisateur ne correspond' : 'Aucun utilisateur'}
             description={
               filtresActifs
-                ? 'Changez de role ou de statut pour elargir la recherche.'
-                : 'Creez le premier compte administrateur ou cadre.'
+                ? 'Changez de rôle ou de statut pour élargir la recherche.'
+                : 'Créez le premier compte administrateur ou cadre.'
             }
             ctaLabel={filtresActifs ? undefined : '+ Nouveau compte'}
             ctaOnClick={filtresActifs ? reinitialiserFiltres : ouvrirCreation}
@@ -316,7 +320,7 @@ export default function GestionUtilisateurs() {
           />
         ) : (
           <Tableau>
-            <EnteteTableau colonnes={['Matricule', 'Nom', 'Role', 'Specialite', 'Niveau', 'Statut', 'Actions']} />
+            <EnteteTableau colonnes={['Matricule', 'Nom', 'Rôle', 'Spécialité', 'Niveau', 'Statut', 'Actions']} />
             <tbody>
               {utilisateurs.map((u) => (
                 <tr key={u.matricule}>
@@ -362,7 +366,7 @@ export default function GestionUtilisateurs() {
           <>
             <button type="button" className="btn-secondary" onClick={() => setModalCreation(false)}>Annuler</button>
             <button type="submit" form="form-user-creation" className="btn-primary" disabled={envoi}>
-              {envoi ? 'Creation...' : 'Creer le compte'}
+              {envoi ? 'Création…' : 'Créer le compte'}
             </button>
           </>
         }>
@@ -381,7 +385,14 @@ export default function GestionUtilisateurs() {
                 <SelectFiltre
                   required
                   value={formCreation.role}
-                  onChange={(valeur) => setFormCreation({ ...formCreation, role: valeur as Role })}
+                  onChange={(valeur) => {
+                    const role = valeur as Role;
+                    setFormCreation({
+                      ...formCreation,
+                      role,
+                      ...(role !== 'ADMINISTRATEUR' ? { niveau_privilege: '' } : {}),
+                    });
+                  }}
                   options={ROLES.map((r) => ({ value: r, label: LIBELLE_ROLE[r] }))}
                 />
               </Champ>
@@ -406,20 +417,20 @@ export default function GestionUtilisateurs() {
                   value={formCreation.mot_de_passe}
                   onChange={(e) => setFormCreation({ ...formCreation, mot_de_passe: e.target.value })} />
               </Champ>
-              <Champ label="Niveau de privilège" optionnel aide="30 caractères maximum.">
-                <Input maxLength={30} value={formCreation.niveau_privilege}
-                  onChange={(e) => setFormCreation({ ...formCreation, niveau_privilege: e.target.value })} />
-              </Champ>
-            </FormGrid>
-            {formCreation.role === 'CADRE_MAINTENANCE' && (
-              <div className="mt-4">
+              {formCreation.role === 'ADMINISTRATEUR' && (
+                <Champ label="Niveau de privilège" optionnel aide="30 caractères maximum.">
+                  <Input maxLength={30} value={formCreation.niveau_privilege}
+                    onChange={(e) => setFormCreation({ ...formCreation, niveau_privilege: e.target.value })} />
+                </Champ>
+              )}
+              {formCreation.role === 'CADRE_MAINTENANCE' && (
                 <Champ label="Spécialité" requis aide="100 caractères maximum.">
                   <Input required maxLength={100} value={formCreation.specialite}
                     onChange={(e) => setFormCreation({ ...formCreation, specialite: e.target.value })}
                     placeholder="Ex. Réseau, Système..." />
                 </Champ>
-              </div>
-            )}
+              )}
+            </FormGrid>
           </SectionFormulaire>
         </form>
       </Modal>
@@ -431,7 +442,7 @@ export default function GestionUtilisateurs() {
           <>
             <button type="button" className="btn-secondary" onClick={() => setModalEdition(null)}>Annuler</button>
             <button type="submit" form="form-user-edition" className="btn-primary" disabled={envoi}>
-              {envoi ? 'Enregistrement...' : 'Enregistrer'}
+              {envoi ? 'Enregistrement…' : 'Enregistrer'}
             </button>
           </>
         }>
@@ -454,32 +465,37 @@ export default function GestionUtilisateurs() {
 
           <SectionFormulaire
             titre="Droits"
-            description="Mettez à jour les informations de spécialité et les privilèges."
+            description={modalEdition?.role === 'ADMINISTRATEUR'
+              ? 'Mettez à jour le niveau de privilège.'
+              : 'Mettez à jour la spécialité.'}
           >
-            {modalEdition?.role === 'CADRE_MAINTENANCE' && (
-              <div className="mb-4">
+            <FormGrid>
+              {modalEdition?.role === 'CADRE_MAINTENANCE' && (
                 <Champ label="Spécialité" requis aide="100 caractères maximum.">
                   <Input required maxLength={100} value={formEdition.specialite}
-                    onChange={(e) => setFormEdition({ ...formEdition, specialite: e.target.value })} />
+                    onChange={(e) => setFormEdition({ ...formEdition, specialite: e.target.value })}
+                    placeholder="Ex. Réseau, Système..." />
                 </Champ>
-              </div>
-            )}
-            <Champ label="Niveau de privilège" optionnel aide="30 caractères maximum.">
-              <Input maxLength={30} value={formEdition.niveau_privilege}
-                onChange={(e) => setFormEdition({ ...formEdition, niveau_privilege: e.target.value })} />
-            </Champ>
+              )}
+              {modalEdition?.role === 'ADMINISTRATEUR' && (
+                <Champ label="Niveau de privilège" optionnel aide="30 caractères maximum.">
+                  <Input maxLength={30} value={formEdition.niveau_privilege}
+                    onChange={(e) => setFormEdition({ ...formEdition, niveau_privilege: e.target.value })} />
+                </Champ>
+              )}
+            </FormGrid>
           </SectionFormulaire>
         </form>
       </Modal>
 
       <Modal ouvert={modalReset !== null}
-        titre={modalReset ? `Reinitialiser le MDP de ${modalReset.matricule}` : ''}
+        titre={modalReset ? `Réinitialiser le mot de passe de ${modalReset.matricule}` : ''}
         onFermer={() => setModalReset(null)}
         piedDePage={
           <>
             <button type="button" className="btn-secondary" onClick={() => setModalReset(null)}>Annuler</button>
             <button type="submit" form="form-reset-mdp" className="btn-warning" disabled={envoi}>
-              {envoi ? 'Envoi...' : 'Reinitialiser'}
+              {envoi ? 'Envoi…' : 'Réinitialiser'}
             </button>
           </>
         }>

@@ -46,6 +46,19 @@ function formaterLocalisation(
   return `${libelle}${codeBureau ? ` (${codeBureau})` : ''}${ville ? ` - ${ville}` : ''}`;
 }
 
+function formaterMarqueModele(
+  marque: string | null | undefined,
+  modele: string | null | undefined,
+): string {
+  return [marque, modele].filter((valeur) => Boolean(valeur?.trim())).join(' ') || '—';
+}
+
+function dateDuJour(): string {
+  const maintenant = new Date();
+  const decalage = maintenant.getTimezoneOffset() * 60000;
+  return new Date(maintenant.getTime() - decalage).toISOString().slice(0, 10);
+}
+
 const STATUTS: StatutMateriel[] = ['STOCK', 'SERVICE', 'PANNE', 'MAINTENANCE', 'REFORME'];
 const CATEGORIES: TypeCategorie[] = ['BUREAUTIQUE', 'OPERATIONNEL'];
 
@@ -74,12 +87,14 @@ interface Formulaire {
   systeme_aviation: string;
   id_localisation_origine: string;
 }
-const FORM_VIDE: Formulaire = {
-  code_materiel: '', num_serie: '', marque: '', modele: '',
-  date_acquisition: new Date().toISOString().slice(0, 10),
-  caracteristiques: '', type_categorie: 'BUREAUTIQUE',
-  type_equipement: '', systeme_aviation: '', id_localisation_origine: '',
-};
+function formVide(): Formulaire {
+  return {
+    code_materiel: '', num_serie: '', marque: '', modele: '',
+    date_acquisition: dateDuJour(),
+    caracteristiques: '', type_categorie: 'BUREAUTIQUE',
+    type_equipement: '', systeme_aviation: '', id_localisation_origine: '',
+  };
+}
 
 interface MenuActionsMateriel {
   code: string;
@@ -110,7 +125,7 @@ export default function InventaireMateriels() {
   const [modalOuvert, setModalOuvert] = useState(false);
   const [modeEdition, setModeEdition] = useState<string | null>(null);
   const [materielEdite, setMaterielEdite] = useState<Materiel | null>(null);
-  const [form, setForm] = useState<Formulaire>(FORM_VIDE);
+  const [form, setForm] = useState<Formulaire>(formVide);
   const [envoi, setEnvoi] = useState(false);
   const [menuActions, setMenuActions] = useState<MenuActionsMateriel | null>(null);
   const filtresActifs = q.trim() !== '' || filtreCategorie !== ''
@@ -137,13 +152,18 @@ export default function InventaireMateriels() {
       }
     };
     const fermer = () => setMenuActions(null);
+    const fermerClavier = (evenement: KeyboardEvent) => {
+      if (evenement.key === 'Escape') setMenuActions(null);
+    };
 
     document.addEventListener('mousedown', fermerExterieur);
+    document.addEventListener('keydown', fermerClavier);
     window.addEventListener('scroll', fermer, true);
     window.addEventListener('resize', fermer);
 
     return () => {
       document.removeEventListener('mousedown', fermerExterieur);
+      document.removeEventListener('keydown', fermerClavier);
       window.removeEventListener('scroll', fermer, true);
       window.removeEventListener('resize', fermer);
     };
@@ -226,7 +246,7 @@ export default function InventaireMateriels() {
     setModeEdition(null);
     setMaterielEdite(null);
     const codeAuto = genererCodeMateriel(materiels);
-    setForm({ ...FORM_VIDE, code_materiel: codeAuto, type_categorie: 'BUREAUTIQUE' });
+    setForm({ ...formVide(), code_materiel: codeAuto, type_categorie: 'BUREAUTIQUE' });
     setModalOuvert(true);
   };
 
@@ -294,7 +314,11 @@ export default function InventaireMateriels() {
     try {
       await supprimerMateriel(code);
       toast.succes('Matériel supprimé', `${code} a été retiré de l’inventaire.`);
-      await charger();
+      if (materiels.length === 1 && page > 1) {
+        setPage((valeur) => valeur - 1);
+      } else {
+        await charger();
+      }
     } catch (err) {
       toast.erreur('Suppression impossible', extraireMessageErreur(err));
     }
@@ -372,13 +396,13 @@ export default function InventaireMateriels() {
         ) : materiels.length === 0 ? (
           <EmptyState
             icone={filtresActifs ? <IconesEmpty.Recherche /> : <IconesEmpty.Boite />}
-            titre={filtresActifs ? 'Aucun materiel ne correspond a vos filtres' : 'Aucun materiel dans l\'inventaire'}
+            titre={filtresActifs ? 'Aucun matériel ne correspond à vos filtres' : 'Aucun matériel dans l\'inventaire'}
             description={
               filtresActifs
-                ? 'Essayez d\'elargir la recherche ou de retirer un filtre.'
-                : 'Ajoutez votre premier materiel pour demarrer l\'inventaire.'
+                ? 'Essayez d\'élargir la recherche ou de retirer un filtre.'
+                : 'Ajoutez votre premier matériel pour démarrer l\'inventaire.'
             }
-            ctaLabel={filtresActifs ? undefined : '+ Nouveau materiel'}
+            ctaLabel={filtresActifs ? undefined : '+ Nouveau matériel'}
             ctaOnClick={filtresActifs ? reinitialiserFiltres : ouvrirCreation}
             filtreActif={filtresActifs}
           />
@@ -389,8 +413,8 @@ export default function InventaireMateriels() {
               {materiels.map((m) => (
                 <tr key={m.code_materiel}>
                   <td className="font-medium">{m.code_materiel}</td>
-                  <td>{m.type_categorie}</td>
-                  <td>{m.marque} {m.modele}</td>
+                  <td>{LIBELLE_CATEGORIE[m.type_categorie] ?? m.type_categorie}</td>
+                  <td>{formaterMarqueModele(m.marque, m.modele)}</td>
                   <td><Badge valeur={m.statut_materiel} /></td>
                   <td>
                     {m.nom_service ?? `#${m.id_localisation}`}{m.code_bureau ? ` (${m.code_bureau})` : ''}
@@ -404,6 +428,8 @@ export default function InventaireMateriels() {
                         <BoutonIcone
                           libelle="Plus d’actions"
                           icone="options"
+                          aria-haspopup="menu"
+                          aria-expanded={menuActions?.code === m.code_materiel}
                           onClick={(evenement) => basculerMenuActions(m.code_materiel, evenement.currentTarget)}
                         />
                         {menuActions?.code === m.code_materiel && (
@@ -476,12 +502,17 @@ export default function InventaireMateriels() {
             description="Références uniques et caractéristiques techniques du matériel."
           >
             <FormGrid>
-              <Champ label="Code matériel" aide="Généré automatiquement à la création.">
+              <Champ
+                label="Code matériel"
+                requis
+                aide={modeEdition ? 'Le code est figé après la création.' : 'Proposé automatiquement, modifiable si besoin.'}
+              >
                 <Input
                   required
                   value={form.code_materiel}
-                  readOnly
-                  disabled
+                  readOnly={!!modeEdition}
+                  disabled={!!modeEdition}
+                  onChange={(e) => setForm({ ...form, code_materiel: e.target.value })}
                   className="font-mono"
                 />
               </Champ>
