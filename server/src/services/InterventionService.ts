@@ -2,10 +2,10 @@ import type { PoolClient } from 'pg';
 import { withTransaction } from '../config/database.js';
 import { AppError } from '../middlewares/errorHandler.js';
 import type {
+  CompteRenduDto,
   Fiche,
   FicheListItem,
   ListInterventionsQuery,
-  MajFicheDto,
   TerminerFicheDto,
 } from '../models/incident.js';
 import type { IncidentRepository } from '../repositories/IncidentRepository.js';
@@ -45,12 +45,42 @@ export class InterventionService {
     return fiche;
   }
 
-  async mettreAJour(num: string, dto: MajFicheDto, matricule: string): Promise<Fiche> {
+  async ajouterCompteRendu(num: string, dto: CompteRenduDto, matricule: string): Promise<Fiche> {
     await withTransaction(async (client) => {
       const fiche = await this.verrouillerFicheOuverte(client, num, matricule);
-      await this.interventions.updateFicheTx(client, num, dto);
+      await this.interventions.insertCompteRenduTx(client, num, matricule, dto);
       if (fiche.statut_incident === 'PRISE_EN_CHARGE') {
         await this.incidents.updateStatutTx(client, fiche.num_incident, 'EN_COURS');
+      }
+    });
+    return this.obtenir(num);
+  }
+
+  async modifierCompteRendu(
+    num: string,
+    id: number,
+    dto: CompteRenduDto,
+    matricule: string,
+  ): Promise<Fiche> {
+    await withTransaction(async (client) => {
+      const fiche = await this.verrouillerFicheOuverte(client, num, matricule);
+      const modifie = await this.interventions.updateCompteRenduTx(client, num, id, dto);
+      if (!modifie) {
+        throw new AppError(404, 'Compte rendu introuvable ou figé.');
+      }
+      if (fiche.statut_incident === 'PRISE_EN_CHARGE') {
+        await this.incidents.updateStatutTx(client, fiche.num_incident, 'EN_COURS');
+      }
+    });
+    return this.obtenir(num);
+  }
+
+  async supprimerCompteRendu(num: string, id: number, matricule: string): Promise<Fiche> {
+    await withTransaction(async (client) => {
+      await this.verrouillerFicheOuverte(client, num, matricule);
+      const supprime = await this.interventions.deleteCompteRenduTx(client, num, id);
+      if (!supprime) {
+        throw new AppError(404, 'Compte rendu introuvable ou figé.');
       }
     });
     return this.obtenir(num);
@@ -59,11 +89,32 @@ export class InterventionService {
   async terminer(num: string, dto: TerminerFicheDto, matricule: string): Promise<Fiche> {
     await withTransaction(async (client) => {
       const fiche = await this.verrouillerFicheOuverte(client, num, matricule);
+      await this.interventions.insertCompteRenduTx(
+        client,
+        num,
+        matricule,
+        {
+          diagnostic: dto.diagnostic ?? null,
+          travaux_realises: dto.travaux_realises,
+        },
+        true,
+      );
       await this.interventions.terminerFicheTx(client, num, dto);
-      await this.incidents.updateStatutTx(client, fiche.num_incident, 'RESOLU');
       await this.incidents.setMaterielStatutTx(client, fiche.code_materiel, dto.statut_final_materiel);
+      if (dto.statut_final_materiel === 'PANNE') {
+        await this.constaterPersistencePanne(client, fiche.num_incident);
+      } else {
+        await this.incidents.updateStatutTx(client, fiche.num_incident, 'RESOLU');
+      }
     });
     return this.obtenir(num);
+  }
+
+  private async constaterPersistencePanne(
+    client: PoolClient,
+    numIncident: string,
+  ): Promise<void> {
+    await this.incidents.updateStatutTx(client, numIncident, 'EN_COURS');
   }
 
   private async verrouillerFicheOuverte(

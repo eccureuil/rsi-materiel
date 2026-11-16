@@ -27,11 +27,11 @@ function texteDecharge(bon: BonDecharge): string {
   const agent = bon.agent_beneficiaire;
   switch (bon.type_mouvement) {
     case 'AFFECTATION':
-      return `Je soussigné(e) ${agent}, reconnais avoir reçu le matériel désigné ci-dessus, en bon état apparent de fonctionnement. Je m'engage à en faire un usage conforme aux règles de l'ASECNA, à signaler sans délai toute panne ou anomalie au service RSI, et à le restituer sur simple demande.`;
+      return `Je soussigné(e) ${agent}, reconnais avoir reçu le matériel désigné ci-dessus, en bon état apparent de fonctionnement.`;
     case 'MUTATION':
-      return `Je soussigné(e) ${agent}, reconnais avoir pris en charge le matériel désigné ci-dessus à la suite de son transfert vers la localisation indiquée. Je m'engage à en faire un usage conforme aux règles de l'ASECNA et à signaler sans délai toute panne ou anomalie au service RSI.`;
+      return `Je soussigné(e) ${agent}, reconnais avoir reçu le matériel désigné ci-dessus à la suite de son transfert, en bon état apparent de fonctionnement.`;
     case 'RESTITUTION':
-      return `Je soussigné(e) ${agent}, déclare restituer au service RSI le matériel désigné ci-dessus. Le service RSI en prend réception et me décharge de sa responsabilité à compter de la date de ce bon.`;
+      return `Je soussigné(e) ${agent}, déclare restituer au service RSI le matériel désigné ci-dessus.`;
   }
 }
 

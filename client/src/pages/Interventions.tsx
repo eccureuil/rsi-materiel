@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
-  imputerPiece, listerImputations, listerInterventions, listerPieces,
-  modifierIntervention, obtenirIntervention, supprimerImputation, terminerIntervention,
+  ajouterCompteRenduIntervention, creerPiece, imputerPiece, listerImputations, listerInterventions,
+  listerPieces, modifierCompteRenduIntervention, obtenirIntervention, supprimerCompteRenduIntervention,
+  supprimerImputation, terminerIntervention,
 } from '@/api/services';
 import { extraireMessageErreur } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
@@ -15,7 +16,7 @@ import {
   SectionFormulaire, Select, SelectFiltre, Textarea, type FiltreActif,
 } from '@/components/FormControls';
 import type {
-  Imputation, Intervention, Piece, StatutMateriel, TypeMaintenance,
+  CompteRenduIntervention, Imputation, Intervention, Piece, StatutMateriel, TypeMaintenance,
 } from '@/types/api';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTableau } from '@/components/Skeleton';
@@ -29,6 +30,21 @@ const STATUTS_FINAUX: StatutMateriel[] = ['SERVICE', 'PANNE', 'REFORME'];
 const LIBELLE_TYPE: Record<TypeMaintenance, string> = {
   CORRECTIVE: 'Corrective',
   PREVENTIVE: 'Préventive',
+};
+
+const LIBELLE_STATUT_MATERIEL: Record<StatutMateriel, string> = {
+  STOCK: 'En stock',
+  SERVICE: 'En service',
+  PANNE: 'En panne',
+  MAINTENANCE: 'En maintenance',
+  REFORME: 'Réformé',
+};
+
+const FORM_PIECE_VIDE = {
+  ref_piece: '',
+  designation: '',
+  quantite_en_stock: '0',
+  seuil_minimum: '0',
 };
 
 function formatDateHeure(valeur: string | null): string {
@@ -128,6 +144,10 @@ export default function Interventions() {
   const [travauxEdit, setTravauxEdit] = useState('');
   const [envoi, setEnvoi] = useState(false);
 
+  const [compteEnEdition, setCompteEnEdition] = useState<number | null>(null);
+  const [diagCompteEdit, setDiagCompteEdit] = useState('');
+  const [travauxCompteEdit, setTravauxCompteEdit] = useState('');
+
   const [modalTerminer, setModalTerminer] = useState(false);
   const [termTravaux, setTermTravaux] = useState('');
   const [termStatut, setTermStatut] = useState<StatutMateriel>('SERVICE');
@@ -135,6 +155,8 @@ export default function Interventions() {
 
   const [imputRef, setImputRef] = useState('');
   const [imputQte, setImputQte] = useState(1);
+  const [creationPieceOuverte, setCreationPieceOuverte] = useState(false);
+  const [formPiece, setFormPiece] = useState(FORM_PIECE_VIDE);
 
   const charger = useCallback(async () => {
     setChargement(true);
@@ -159,16 +181,22 @@ export default function Interventions() {
       const [i, imps] = await Promise.all([obtenirIntervention(num), listerImputations(num)]);
       setFiche(i);
       setImputations(imps ?? []);
-      setDiagEdit(i.diagnostic ?? '');
-      setTravauxEdit(i.travaux_realises ?? '');
+      setDiagEdit('');
+      setTravauxEdit('');
+      setCompteEnEdition(null);
+      setDiagCompteEdit('');
+      setTravauxCompteEdit('');
       const p = await listerPieces({ limit: 100 });
       setPieces(p.items ?? []);
       setImputRef(''); setImputQte(1);
+      setCreationPieceOuverte(false); setFormPiece(FORM_PIECE_VIDE);
     } catch (err) { toast.erreur('Fiche indisponible', extraireMessageErreur(err)); }
   };
 
   const fermerFiche = () => {
     setFiche(null); setImputations([]); setDiagEdit(''); setTravauxEdit('');
+    setCompteEnEdition(null); setDiagCompteEdit(''); setTravauxCompteEdit('');
+    setCreationPieceOuverte(false); setFormPiece(FORM_PIECE_VIDE);
   };
 
   const estIntervenantCourant = (i: Intervention): boolean => {
@@ -179,25 +207,76 @@ export default function Interventions() {
   const peutAgir = (i: Intervention): boolean =>
     estCadre && i.date_fin === null && estIntervenantCourant(i);
 
-  const enregistrerDiagTravaux = async () => {
-    if (!fiche) return;
+  const ajouterCompteRendu = async () => {
+    if (!fiche || (!diagEdit.trim() && !travauxEdit.trim())) return;
     setEnvoi(true);
     try {
-      await modifierIntervention(fiche.num_intervention, {
+      await ajouterCompteRenduIntervention(fiche.num_intervention, {
         diagnostic: diagEdit || undefined,
         travaux_realises: travauxEdit || undefined,
       });
-      toast.succes('Fiche mise à jour', `Diagnostic et travaux enregistrés pour ${fiche.num_intervention}.`);
+      toast.succes('Compte rendu ajouté', `Nouvelle entrée enregistrée pour ${fiche.num_intervention}.`);
+      setDiagEdit('');
+      setTravauxEdit('');
       await ouvrirFiche(fiche.num_intervention);
       await charger();
-    } catch (err) { toast.erreur('Enregistrement refusé', extraireMessageErreur(err)); }
+    } catch (err) { toast.erreur('Ajout refusé', extraireMessageErreur(err)); }
+    finally { setEnvoi(false); }
+  };
+
+  const commencerEditionCompte = (compte: CompteRenduIntervention) => {
+    setCompteEnEdition(compte.id_compte_rendu);
+    setDiagCompteEdit(compte.diagnostic ?? '');
+    setTravauxCompteEdit(compte.travaux_realises ?? '');
+  };
+
+  const annulerEditionCompte = () => {
+    setCompteEnEdition(null);
+    setDiagCompteEdit('');
+    setTravauxCompteEdit('');
+  };
+
+  const enregistrerCompte = async () => {
+    if (!fiche || compteEnEdition === null) return;
+    if (!diagCompteEdit.trim() && !travauxCompteEdit.trim()) return;
+    setEnvoi(true);
+    try {
+      await modifierCompteRenduIntervention(fiche.num_intervention, compteEnEdition, {
+        diagnostic: diagCompteEdit || undefined,
+        travaux_realises: travauxCompteEdit || undefined,
+      });
+      toast.succes('Compte rendu modifié', `Entrée #${compteEnEdition} mise à jour.`);
+      annulerEditionCompte();
+      await ouvrirFiche(fiche.num_intervention);
+      await charger();
+    } catch (err) { toast.erreur('Modification refusée', extraireMessageErreur(err)); }
+    finally { setEnvoi(false); }
+  };
+
+  const supprimerCompte = async (id: number) => {
+    if (!fiche) return;
+    const ok = await confirmer({
+      titre: 'Supprimer ce compte rendu ?',
+      message: 'Cette entrée sera définitivement retirée de l’intervention en cours.',
+      libelleConfirmer: 'Supprimer',
+      ton: 'danger',
+    });
+    if (!ok) return;
+    setEnvoi(true);
+    try {
+      await supprimerCompteRenduIntervention(fiche.num_intervention, id);
+      toast.info('Compte rendu supprimé', `Entrée #${id} retirée.`);
+      if (compteEnEdition === id) annulerEditionCompte();
+      await ouvrirFiche(fiche.num_intervention);
+      await charger();
+    } catch (err) { toast.erreur('Suppression impossible', extraireMessageErreur(err)); }
     finally { setEnvoi(false); }
   };
 
   const ouvrirModalTerminer = () => {
     if (!fiche) return;
-    setTermTravaux(fiche.travaux_realises ?? '');
-    setTermDiag(fiche.diagnostic ?? '');
+    setTermTravaux(travauxEdit);
+    setTermDiag(diagEdit);
     setTermStatut('SERVICE');
     setModalTerminer(true);
   };
@@ -212,7 +291,7 @@ export default function Interventions() {
         statut_final_materiel: termStatut,
         diagnostic: termDiag || undefined,
       });
-      toast.succes('Intervention terminée', `${fiche.num_intervention} clôturée, matériel en ${termStatut}.`);
+      toast.succes('Intervention terminée', `${fiche.num_intervention} clôturée, matériel au statut « ${LIBELLE_STATUT_MATERIEL[termStatut]} ».`);
       setModalTerminer(false);
       await charger();
       await ouvrirFiche(fiche.num_intervention);
@@ -230,6 +309,28 @@ export default function Interventions() {
       setImputRef(''); setImputQte(1);
       await ouvrirFiche(fiche.num_intervention);
     } catch (err) { toast.erreur('Imputation refusée', extraireMessageErreur(err)); }
+    finally { setEnvoi(false); }
+  };
+
+  const creerPieceDansFiche = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!fiche) return;
+    setEnvoi(true);
+    try {
+      const piece = await creerPiece({
+        ref_piece: formPiece.ref_piece.trim(),
+        designation: formPiece.designation.trim(),
+        quantite_en_stock: Number(formPiece.quantite_en_stock),
+        seuil_minimum: Number(formPiece.seuil_minimum),
+      });
+      toast.succes('Pièce créée', `${piece.ref_piece} a été ajoutée au stock.`);
+      setCreationPieceOuverte(false);
+      setFormPiece(FORM_PIECE_VIDE);
+      const p = await listerPieces({ limit: 100 });
+      setPieces(p.items ?? []);
+      setImputRef(piece.ref_piece);
+      setImputQte(1);
+    } catch (err) { toast.erreur('Création refusée', extraireMessageErreur(err)); }
     finally { setEnvoi(false); }
   };
 
@@ -429,26 +530,117 @@ export default function Interventions() {
               )}
             </SectionFormulaire>
 
-            <SectionFormulaire titre="Compte rendu">
-              {peutAgir(fiche) ? (
+            <SectionFormulaire
+              titre="Comptes rendus"
+              description={`${(fiche.comptes_rendus ?? []).length} entrée(s)`}
+            >
+              {(fiche.comptes_rendus ?? []).length === 0 ? (
+                <p className="text-sm italic text-slate-400">Aucun compte rendu enregistré.</p>
+              ) : (
                 <div className="space-y-3">
-                  <Champ label="Diagnostic" optionnel>
+                  {(fiche.comptes_rendus ?? []).map((compte) => {
+                    const enEdition = compteEnEdition === compte.id_compte_rendu;
+                    return (
+                      <div key={compte.id_compte_rendu} className="rounded-xl border border-slate-200 bg-white p-3.5">
+                        <div className="flex flex-wrap items-center justify-between gap-2">
+                          <p className="text-xs text-slate-500">
+                            {formatDateHeure(compte.date_saisie)}
+                            {compte.auteur ? ` · ${compte.auteur}` : ''}
+                          </p>
+                          <div className="flex items-center gap-1.5">
+                            {compte.est_final && (
+                              <span className="badge bg-emerald-100 text-emerald-800">Final</span>
+                            )}
+                            {peutAgir(fiche) && !compte.est_final && !enEdition && (
+                              <>
+                                <BoutonIcone
+                                  libelle="Modifier le compte rendu"
+                                  icone="modifier"
+                                  onClick={() => commencerEditionCompte(compte)}
+                                  disabled={envoi}
+                                />
+                                <BoutonIcone
+                                  libelle="Supprimer le compte rendu"
+                                  icone="supprimer"
+                                  variante="danger"
+                                  onClick={() => void supprimerCompte(compte.id_compte_rendu)}
+                                  disabled={envoi}
+                                />
+                              </>
+                            )}
+                          </div>
+                        </div>
+                        {enEdition ? (
+                          <div className="mt-3 space-y-3">
+                            <Champ label="Diagnostic" optionnel>
+                              <Textarea
+                                rows={3}
+                                value={diagCompteEdit}
+                                onChange={(e) => setDiagCompteEdit(e.target.value)}
+                              />
+                            </Champ>
+                            <Champ label="Travaux réalisés" optionnel>
+                              <Textarea
+                                rows={3}
+                                value={travauxCompteEdit}
+                                onChange={(e) => setTravauxCompteEdit(e.target.value)}
+                              />
+                            </Champ>
+                            <div className="flex justify-end gap-2">
+                              <button
+                                type="button"
+                                className="btn-secondary"
+                                onClick={annulerEditionCompte}
+                                disabled={envoi}
+                              >
+                                Annuler
+                              </button>
+                              <button
+                                type="button"
+                                className="btn-primary"
+                                disabled={envoi || (!diagCompteEdit.trim() && !travauxCompteEdit.trim())}
+                                onClick={() => void enregistrerCompte()}
+                              >
+                                {envoi ? 'Enregistrement…' : 'Enregistrer'}
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <BlocTexte titre="Diagnostic" contenu={compte.diagnostic} />
+                            <BlocTexte titre="Travaux réalisés" contenu={compte.travaux_realises} />
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+
+              {fiche.date_fin && (fiche.comptes_rendus ?? []).length > 0 && (
+                <p className="mt-3 text-xs italic text-slate-400">
+                  Comptes rendus figés : l’intervention est terminée.
+                </p>
+              )}
+
+              {peutAgir(fiche) && (
+                <div className="mt-4 space-y-3 border-t border-slate-200 pt-4">
+                  <Champ label="Nouveau diagnostic" optionnel>
                     <Textarea rows={3} value={diagEdit} onChange={(e) => setDiagEdit(e.target.value)} />
                   </Champ>
-                  <Champ label="Travaux réalisés" optionnel>
+                  <Champ label="Nouveaux travaux réalisés" optionnel>
                     <Textarea rows={3} value={travauxEdit} onChange={(e) => setTravauxEdit(e.target.value)} />
                   </Champ>
                   <div className="flex justify-end">
-                    <button type="button" className="btn-primary" disabled={envoi}
-                      onClick={() => void enregistrerDiagTravaux()}>
-                      {envoi ? 'Enregistrement…' : 'Enregistrer diagnostic/travaux'}
+                    <button
+                      type="button"
+                      className="btn-primary"
+                      disabled={envoi || (!diagEdit.trim() && !travauxEdit.trim())}
+                      onClick={() => void ajouterCompteRendu()}
+                    >
+                      {envoi ? 'Enregistrement…' : 'Ajouter le compte rendu'}
                     </button>
                   </div>
-                </div>
-              ) : (
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <BlocTexte titre="Diagnostic" contenu={fiche.diagnostic} />
-                  <BlocTexte titre="Travaux réalisés" contenu={fiche.travaux_realises} />
                 </div>
               )}
             </SectionFormulaire>
@@ -490,6 +682,80 @@ export default function Interventions() {
               )}
 
               {peutAgir(fiche) && (
+                <div className="mt-3 rounded-xl border border-slate-200 bg-slate-50/60 p-3.5">
+                  <div className="flex flex-wrap items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-medium text-slate-700">Pièce absente du stock ?</p>
+                      <p className="mt-0.5 text-xs text-slate-500">
+                        Créez-la ici : elle sera ajoutée au stock puis présélectionnée.
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      className="btn-secondary"
+                      onClick={() => setCreationPieceOuverte((ouvert) => !ouvert)}
+                    >
+                      {creationPieceOuverte ? 'Annuler' : 'Nouvelle pièce'}
+                    </button>
+                  </div>
+
+                  {creationPieceOuverte && (
+                    <form onSubmit={creerPieceDansFiche} className="mt-3 grid gap-3 border-t border-slate-200 pt-3 sm:grid-cols-2">
+                      <Champ label="Référence" requis>
+                        <Input
+                          required
+                          maxLength={30}
+                          pattern="[A-Za-z0-9._-]+"
+                          title="1 à 30 caractères : lettres, chiffres, . _ -"
+                          value={formPiece.ref_piece}
+                          onChange={(e) => setFormPiece({ ...formPiece, ref_piece: e.target.value })}
+                        />
+                      </Champ>
+                      <Champ label="Désignation" requis>
+                        <Input
+                          required
+                          maxLength={100}
+                          value={formPiece.designation}
+                          onChange={(e) => setFormPiece({ ...formPiece, designation: e.target.value })}
+                        />
+                      </Champ>
+                      <Champ label="Quantité initiale" requis aide="Stock disponible avant imputation.">
+                        <Input
+                          type="number"
+                          min={0}
+                          required
+                          value={formPiece.quantite_en_stock}
+                          onChange={(e) => setFormPiece({ ...formPiece, quantite_en_stock: e.target.value })}
+                        />
+                      </Champ>
+                      <Champ label="Seuil minimum" requis aide="Déclenche l'alerte de stock.">
+                        <Input
+                          type="number"
+                          min={0}
+                          required
+                          value={formPiece.seuil_minimum}
+                          onChange={(e) => setFormPiece({ ...formPiece, seuil_minimum: e.target.value })}
+                        />
+                      </Champ>
+                      <div className="flex justify-end gap-2 sm:col-span-2">
+                        <button
+                          type="button"
+                          className="btn-secondary"
+                          disabled={envoi}
+                          onClick={() => { setCreationPieceOuverte(false); setFormPiece(FORM_PIECE_VIDE); }}
+                        >
+                          Annuler
+                        </button>
+                        <button type="submit" className="btn-primary" disabled={envoi}>
+                          {envoi ? 'Création…' : 'Créer et sélectionner'}
+                        </button>
+                      </div>
+                    </form>
+                  )}
+                </div>
+              )}
+
+              {peutAgir(fiche) && (
                 <form onSubmit={imputer} className="mt-3 grid gap-3 rounded-xl border border-slate-200 bg-white p-3.5 sm:grid-cols-[minmax(0,1fr)_7rem_auto] sm:items-end">
                   <Champ label="Pièce" requis>
                     <Select required value={imputRef} onChange={(e) => setImputRef(e.target.value)}>
@@ -524,6 +790,15 @@ export default function Interventions() {
           </>
         }>
         <form id="form-terminer" onSubmit={terminer} className="space-y-5">
+          <div className="rounded-xl border border-emerald-200 bg-emerald-50 p-3.5">
+            <p className="text-[10px] font-semibold uppercase tracking-[0.12em] text-emerald-700">
+              Compte rendu final
+            </p>
+            <p className="mt-1 text-xs text-emerald-800">
+              Les informations saisies ci-dessous seront enregistrées comme compte rendu final de
+              l’intervention.
+            </p>
+          </div>
           <Champ label="Diagnostic" optionnel>
             <Textarea rows={3} value={termDiag} onChange={(e) => setTermDiag(e.target.value)} />
           </Champ>
@@ -533,7 +808,7 @@ export default function Interventions() {
           <Champ label="Statut final du matériel" requis>
             <Select required value={termStatut}
               onChange={(e) => setTermStatut(e.target.value as StatutMateriel)}>
-              {STATUTS_FINAUX.map((s) => <option key={s} value={s}>{s}</option>)}
+              {STATUTS_FINAUX.map((s) => <option key={s} value={s}>{LIBELLE_STATUT_MATERIEL[s]}</option>)}
             </Select>
           </Champ>
         </form>

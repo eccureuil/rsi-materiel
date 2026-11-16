@@ -16,6 +16,7 @@ const LIBELLE_TYPE: Record<TypeEvenement, string> = {
   MOUVEMENT: 'Mouvement',
   INCIDENT: 'Panne',
   INTERVENTION_DEBUT: 'Intervention',
+  COMPTE_RENDU_INTERVENTION: 'Compte rendu',
   PIECE_UTILISEE: 'Piece',
   INTERVENTION_FIN: 'Fin',
 };

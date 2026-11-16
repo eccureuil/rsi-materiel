@@ -32,6 +32,20 @@ export class LocalisationRepository {
     return (res.rowCount ?? 0) > 0;
   }
 
+  async existeDoublon(dto: LocalisationDto, exclureId?: number): Promise<boolean> {
+    const res = await pool.query(
+      `SELECT 1
+         FROM localisations
+        WHERE LOWER(TRIM(nom_service)) = LOWER(TRIM($1))
+          AND LOWER(TRIM(COALESCE(code_bureau, ''))) = LOWER(TRIM(COALESCE($2, '')))
+          AND LOWER(TRIM(ville)) = LOWER(TRIM($3))
+          AND ($4::int IS NULL OR id_localisation <> $4)
+        LIMIT 1`,
+      [dto.nom_service, dto.code_bureau, dto.ville, exclureId ?? null],
+    );
+    return (res.rowCount ?? 0) > 0;
+  }
+
   async create(dto: LocalisationDto): Promise<number> {
     const res = await pool.query<{ id_localisation: number }>(
       `INSERT INTO localisations (nom_service, code_bureau, ville)

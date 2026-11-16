@@ -82,11 +82,19 @@ export async function genererFicheIntervention(data: FicheInterventionPdfData): 
     ]),
   );
 
-  sectionTitre(doc, 'Diagnostic');
-  paragraphe(doc, fiche.diagnostic ?? 'Non renseigné.');
-
-  sectionTitre(doc, 'Travaux réalisés');
-  paragraphe(doc, fiche.travaux_realises ?? 'Non renseignés.');
+  sectionTitre(doc, 'Comptes rendus');
+  if (fiche.comptes_rendus.length === 0) {
+    paragraphe(doc, 'Aucun compte rendu.');
+  } else {
+    fiche.comptes_rendus.forEach((compte, index) => {
+      if (index > 0) doc.moveDown(0.5);
+      champ(doc, 'Date', formatDate(compte.date_saisie));
+      champ(doc, 'Auteur', compte.auteur ?? 'Non renseigné');
+      if (compte.est_final) champ(doc, 'Type', 'Compte rendu final');
+      if (compte.diagnostic) champ(doc, 'Diagnostic', compte.diagnostic);
+      if (compte.travaux_realises) champ(doc, 'Travaux réalisés', compte.travaux_realises);
+    });
+  }
 
   sectionTitre(doc, 'Pièces utilisées');
   if (pieces.length === 0) {

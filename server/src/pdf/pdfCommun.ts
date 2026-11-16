@@ -1,4 +1,7 @@
+import { fileURLToPath } from 'node:url';
 import PDFDocument from 'pdfkit';
+
+const LOGO_ASECNA = fileURLToPath(new URL('../../assets/logo_asecna.png', import.meta.url));
 
 export const COULEUR_PRIMAIRE = '#1e3a5f';
 const COULEUR_TEXTE = '#0f172a';
@@ -65,6 +68,13 @@ function largeurUtile(doc: PDFKit.PDFDocument): number {
 export function enTete(doc: PDFKit.PDFDocument): void {
   const x = doc.page.margins.left;
   const largeur = largeurUtile(doc);
+  const tailleLogo = 48;
+
+  doc.image(LOGO_ASECNA, x + (largeur - tailleLogo) / 2, doc.y, {
+    width: tailleLogo,
+    height: tailleLogo,
+  });
+  doc.y += tailleLogo + 4;
 
   doc.font('Helvetica-Bold').fontSize(16).fillColor(COULEUR_PRIMAIRE);
   doc.text('ASECNA', x, doc.y, { width: largeur, align: 'center' });

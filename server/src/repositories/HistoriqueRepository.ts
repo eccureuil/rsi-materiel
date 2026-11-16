@@ -61,7 +61,23 @@ const EVENEMENTS_CTE = `
       JOIN pannes_incidents i ON i.num_incident = f.num_incident
 
     UNION ALL
-    SELECT i.code_materiel, 'PIECE_UTILISEE', 5, ip.date_imputation, ip.ref_piece::text,
+    SELECT i.code_materiel, 'COMPTE_RENDU_INTERVENTION', 5, cr.date_saisie, cr.num_intervention::text,
+           jsonb_build_object(
+             'num_incident', f.num_incident,
+             'auteur', CASE
+                         WHEN u.matricule IS NULL THEN NULL
+                         ELSE u.prenom || ' ' || u.nom
+                       END,
+             'diagnostic', cr.diagnostic,
+             'travaux_realises', cr.travaux_realises,
+             'est_final', CASE WHEN cr.est_final THEN 'oui' ELSE 'non' END)
+      FROM comptes_rendus_intervention cr
+      JOIN fiches_interventions f ON f.num_intervention = cr.num_intervention
+      JOIN pannes_incidents i     ON i.num_incident = f.num_incident
+      LEFT JOIN utilisateurs u    ON u.matricule = cr.matricule_cadre
+
+    UNION ALL
+    SELECT i.code_materiel, 'PIECE_UTILISEE', 6, ip.date_imputation, ip.ref_piece::text,
            jsonb_build_object(
              'designation', p.designation,
              'quantite_utilisee', ip.quantite_utilisee,
@@ -72,14 +88,22 @@ const EVENEMENTS_CTE = `
       JOIN pieces_detachees p     ON p.ref_piece = ip.ref_piece
 
     UNION ALL
-    SELECT i.code_materiel, 'INTERVENTION_FIN', 6, f.date_fin, f.num_intervention::text,
+    SELECT i.code_materiel, 'INTERVENTION_FIN', 7, f.date_fin, f.num_intervention::text,
            jsonb_build_object(
              'statut_final_materiel', f.statut_final_materiel,
-             'diagnostic', f.diagnostic,
-             'travaux_realises', f.travaux_realises,
+             'diagnostic', cr.diagnostic,
+             'travaux_realises', cr.travaux_realises,
              'duree_heures', ROUND(EXTRACT(EPOCH FROM (f.date_fin - f.date_debut)) / 3600, 1))
       FROM fiches_interventions f
       JOIN pannes_incidents i ON i.num_incident = f.num_incident
+      LEFT JOIN LATERAL (
+        SELECT diagnostic, travaux_realises
+          FROM comptes_rendus_intervention
+         WHERE num_intervention = f.num_intervention
+           AND est_final
+         ORDER BY date_saisie DESC, id_compte_rendu DESC
+         LIMIT 1
+      ) cr ON TRUE
      WHERE f.date_fin IS NOT NULL
   )`;
 

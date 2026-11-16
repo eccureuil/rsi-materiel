@@ -8,7 +8,11 @@ import type {
 } from '@/types/api';
 
 function normaliserIntervention(i: Intervention): Intervention {
-  return { ...i, intervenants: i.intervenants ?? [] };
+  return {
+    ...i,
+    intervenants: i.intervenants ?? [],
+    comptes_rendus: i.comptes_rendus ?? [],
+  };
 }
 
 export const INTERVENTIONS_CHANGE_EVENT = 'rsi:interventions-change';
@@ -116,11 +120,35 @@ export async function obtenirIntervention(num: string): Promise<Intervention> {
   const { data } = await api.get<{ intervention: Intervention }>(`/interventions/${num}`);
   return normaliserIntervention(data.intervention);
 }
-export async function modifierIntervention(
+export async function ajouterCompteRenduIntervention(
   num: string,
   input: { diagnostic?: string; travaux_realises?: string },
-): Promise<void> {
-  await api.put(`/interventions/${num}`, input);
+): Promise<Intervention> {
+  const { data } = await api.post<{ intervention: Intervention }>(
+    `/interventions/${num}/comptes-rendus`,
+    input,
+  );
+  return normaliserIntervention(data.intervention);
+}
+export async function modifierCompteRenduIntervention(
+  num: string,
+  id: number,
+  input: { diagnostic?: string; travaux_realises?: string },
+): Promise<Intervention> {
+  const { data } = await api.put<{ intervention: Intervention }>(
+    `/interventions/${num}/comptes-rendus/${id}`,
+    input,
+  );
+  return normaliserIntervention(data.intervention);
+}
+export async function supprimerCompteRenduIntervention(
+  num: string,
+  id: number,
+): Promise<Intervention> {
+  const { data } = await api.delete<{ intervention: Intervention }>(
+    `/interventions/${num}/comptes-rendus/${id}`,
+  );
+  return normaliserIntervention(data.intervention);
 }
 export async function terminerIntervention(
   num: string,

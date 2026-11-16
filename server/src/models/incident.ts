@@ -40,6 +40,7 @@ export type Incident = {
   degre_urgence: DegreUrgence;
   statut_incident: StatutIncident;
   num_intervention: string | null;
+  intervention_ouverte: boolean;
   nb_intervenants: number;
 };
 
@@ -49,6 +50,17 @@ export type Intervenant = {
   prenom: string;
   specialite: string;
   date_affectation: string;
+};
+
+export type CompteRenduIntervention = {
+  id_compte_rendu: number;
+  num_intervention: string;
+  matricule_cadre: string | null;
+  auteur: string | null;
+  diagnostic: string | null;
+  travaux_realises: string | null;
+  est_final: boolean;
+  date_saisie: string;
 };
 
 export type FicheRow = {
@@ -64,11 +76,18 @@ export type FicheRow = {
   statut_final_materiel: StatutFinal | null;
 };
 
-export type Fiche = FicheRow & { intervenants: Intervenant[] };
+export type Fiche = FicheRow & {
+  intervenants: Intervenant[];
+  comptes_rendus: CompteRenduIntervention[];
+};
 export type FicheListItem = FicheRow & { nb_intervenants: number };
-export type IncidentDetail = Incident & { fiche: Fiche | null };
+export type IncidentDetail = Incident & { fiche: Fiche | null; fiches: Fiche[] };
 
 export const numParamSchema = z.object({ num: z.string().trim().min(1).max(30) });
+
+export const compteRenduParamSchema = numParamSchema.extend({
+  id: z.coerce.number().int().positive(),
+});
 
 export const declarerIncidentSchema = z.object({
   code_materiel: z.string().trim().min(1, 'Le code matériel est requis.').max(30),
@@ -86,11 +105,15 @@ export const rejeterSchema = z.object({
   motif: z.string().trim().min(3, 'Le motif du rejet est requis.').max(500),
 });
 
-export const majFicheSchema = z.object({
-  diagnostic: texteOptionnel(5000),
-  travaux_realises: texteOptionnel(5000),
-});
-export type MajFicheDto = z.infer<typeof majFicheSchema>;
+export const compteRenduSchema = z
+  .object({
+    diagnostic: texteOptionnel(5000),
+    travaux_realises: texteOptionnel(5000),
+  })
+  .refine((v) => Boolean(v.diagnostic?.trim() || v.travaux_realises?.trim()), {
+    message: 'Renseignez au moins un diagnostic ou des travaux réalisés.',
+  });
+export type CompteRenduDto = z.infer<typeof compteRenduSchema>;
 
 export const terminerFicheSchema = z.object({
   diagnostic: z.string().trim().max(5000).optional(),

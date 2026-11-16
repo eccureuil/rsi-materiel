@@ -15,6 +15,7 @@ const SELECT_INCIDENT = `
        to_char(i.date_declaration, 'YYYY-MM-DD HH24:MI:SS') AS date_declaration,
        i.symptomes, i.degre_urgence, i.statut_incident,
        f.num_intervention,
+       (f.num_intervention IS NOT NULL AND f.date_fin IS NULL) AS intervention_ouverte,
        (SELECT COUNT(*)::int FROM intervenants_fiches x
          WHERE x.num_intervention = f.num_intervention) AS nb_intervenants,
        COALESCE(
@@ -27,7 +28,13 @@ const SELECT_INCIDENT = `
   JOIN materiels m      ON m.code_materiel = i.code_materiel
   JOIN localisations l  ON l.id_localisation = m.id_localisation
   JOIN utilisateurs u   ON u.matricule = i.matricule_declarant
-  LEFT JOIN fiches_interventions f ON f.num_incident = i.num_incident`;
+  LEFT JOIN LATERAL (
+    SELECT f.num_intervention, f.date_fin
+      FROM fiches_interventions f
+     WHERE f.num_incident = i.num_incident
+     ORDER BY (f.date_fin IS NULL) DESC, f.date_debut DESC, f.num_intervention DESC
+     LIMIT 1
+  ) f ON TRUE`;
 
 export type IncidentVerrou = {
   num_incident: string;

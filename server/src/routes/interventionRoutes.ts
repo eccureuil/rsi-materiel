@@ -21,7 +21,10 @@ router.use(authenticate, auditTrail);
 
 router.get('/', controller.lister);
 router.get('/:num', controller.obtenir);
-router.put('/:num', requireRole('CADRE_MAINTENANCE'), controller.mettreAJour);
+router.post('/:num/comptes-rendus', requireRole('CADRE_MAINTENANCE'), controller.ajouterCompteRendu);
+router.put('/:num/comptes-rendus/:id', requireRole('CADRE_MAINTENANCE'), controller.modifierCompteRendu);
+router.delete('/:num/comptes-rendus/:id', requireRole('CADRE_MAINTENANCE'), controller.supprimerCompteRendu);
+router.put('/:num', requireRole('CADRE_MAINTENANCE'), controller.ajouterCompteRendu);
 router.post('/:num/terminer', requireRole('CADRE_MAINTENANCE'), controller.terminer);
 
 // Pièces utilisées pendant l'intervention (UC05)

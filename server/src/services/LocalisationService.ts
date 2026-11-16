@@ -16,13 +16,20 @@ export class LocalisationService {
   }
 
   async creer(dto: LocalisationDto): Promise<Localisation> {
+    if (await this.localisations.existeDoublon(dto)) {
+      throw new AppError(409, 'Cette localisation existe déjà.');
+    }
     const id = await this.localisations.create(dto);
     return this.obtenir(id);
   }
 
   async modifier(id: number, dto: LocalisationDto): Promise<Localisation> {
-    const ok = await this.localisations.update(id, dto);
-    if (!ok) throw new AppError(404, 'Localisation introuvable.');
+    const loc = await this.localisations.findById(id);
+    if (!loc) throw new AppError(404, 'Localisation introuvable.');
+    if (await this.localisations.existeDoublon(dto, id)) {
+      throw new AppError(409, 'Cette localisation existe déjà.');
+    }
+    await this.localisations.update(id, dto);
     return this.obtenir(id);
   }
 

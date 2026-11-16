@@ -184,6 +184,9 @@ function descriptionRessource(
       if (methode === 'POST' && second === 'terminer') {
         return `Clôture de l’intervention « ${premier} »`;
       }
+      if (methode === 'POST' && second === 'comptes-rendus') {
+        return `Ajout d’un compte rendu à l’intervention « ${premier} »`;
+      }
       if (methode === 'POST' && second === 'pieces') {
         return `Imputation d’une pièce à l’intervention « ${premier} »`;
       }
@@ -193,7 +196,13 @@ function descriptionRessource(
       if (methode === 'GET' && second === 'pieces') {
         return `Consultation des pièces de l’intervention « ${premier} »`;
       }
-      if (methode === 'PUT') return `Mise à jour de l’intervention « ${premier} »`;
+      if (methode === 'PUT' && second === 'comptes-rendus') {
+        return `Modification du compte rendu #${troisieme} de l’intervention « ${premier} »`;
+      }
+      if (methode === 'DELETE' && second === 'comptes-rendus') {
+        return `Suppression du compte rendu #${troisieme} de l’intervention « ${premier} »`;
+      }
+      if (methode === 'PUT') return `Ajout d’un compte rendu à l’intervention « ${premier} »`;
       if (methode === 'GET' && premier) return `Consultation de l’intervention « ${premier} »`;
       if (methode === 'GET') return 'Consultation de la liste des interventions';
       return null;

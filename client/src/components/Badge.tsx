@@ -1,3 +1,11 @@
+const libelles: Record<string, string> = {
+  STOCK: 'En stock',
+  SERVICE: 'En service',
+  PANNE: 'En panne',
+  MAINTENANCE: 'En maintenance',
+  REFORME: 'Réformé',
+};
+
 const couleurs: Record<string, string> = {
   STOCK: 'bg-slate-100 text-slate-700',
   SERVICE: 'bg-emerald-100 text-emerald-800',
@@ -21,7 +29,7 @@ const couleurs: Record<string, string> = {
 export default function Badge({ valeur }: { valeur: string }) {
   return (
     <span className={`badge ${couleurs[valeur] ?? 'bg-slate-100 text-slate-700'}`}>
-      {valeur.replace(/_/g, ' ')}
+      {libelles[valeur] ?? valeur.replace(/_/g, ' ')}
     </span>
   );
 }

@@ -1,5 +1,5 @@
 -- =====================================================================
--- RSI ASECNA Madagascar - Schema PostgreSQL 15+ (13 tables)
+-- RSI ASECNA Madagascar - Schema PostgreSQL 15+ (14 tables)
 -- ATTENTION : ce script supprime et recree toutes les tables.
 -- =====================================================================
 
@@ -11,6 +11,7 @@ BEGIN;
 DROP TABLE IF EXISTS journal_audit        CASCADE;
 DROP TABLE IF EXISTS imputations_pieces   CASCADE;
 DROP TABLE IF EXISTS pieces_detachees     CASCADE;
+DROP TABLE IF EXISTS comptes_rendus_intervention CASCADE;
 DROP TABLE IF EXISTS intervenants_fiches  CASCADE;
 DROP TABLE IF EXISTS fiches_interventions CASCADE;
 DROP TABLE IF EXISTS pannes_incidents     CASCADE;
@@ -131,13 +132,11 @@ CREATE TABLE pannes_incidents (
 -- ---------------------------------------------------------------------
 CREATE TABLE fiches_interventions (
     num_intervention       VARCHAR(30) PRIMARY KEY,
-    num_incident           VARCHAR(30) NOT NULL UNIQUE REFERENCES pannes_incidents(num_incident),
+    num_incident           VARCHAR(30) NOT NULL REFERENCES pannes_incidents(num_incident),
     type_maintenance       VARCHAR(30) NOT NULL
         CHECK (type_maintenance IN ('CORRECTIVE', 'PREVENTIVE')),
     date_debut             TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
     date_fin               TIMESTAMP   NULL,
-    diagnostic             TEXT        NULL,
-    travaux_realises       TEXT        NULL,
     statut_final_materiel  VARCHAR(30) NULL
         CHECK (statut_final_materiel IN ('SERVICE', 'PANNE', 'REFORME'))
 );
@@ -155,7 +154,23 @@ CREATE TABLE intervenants_fiches (
 );
 
 -- ---------------------------------------------------------------------
--- 11. pieces_detachees (RG_STOCK_01 : stock jamais negatif)
+-- 11. comptes_rendus_intervention (historique append-only par fiche)
+-- ---------------------------------------------------------------------
+CREATE TABLE comptes_rendus_intervention (
+    id_compte_rendu   SERIAL      PRIMARY KEY,
+    num_intervention  VARCHAR(30) NOT NULL
+        REFERENCES fiches_interventions(num_intervention) ON DELETE CASCADE,
+    matricule_cadre   VARCHAR(20) NULL
+        REFERENCES cadres_maintenance(matricule),
+    diagnostic        TEXT        NULL,
+    travaux_realises  TEXT        NULL,
+    est_final         BOOLEAN     NOT NULL DEFAULT FALSE,
+    date_saisie       TIMESTAMP   NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    CHECK (diagnostic IS NOT NULL OR travaux_realises IS NOT NULL)
+);
+
+-- ---------------------------------------------------------------------
+-- 12. pieces_detachees (RG_STOCK_01 : stock jamais negatif)
 -- ---------------------------------------------------------------------
 CREATE TABLE pieces_detachees (
     ref_piece          VARCHAR(30)  PRIMARY KEY,
@@ -167,7 +182,7 @@ CREATE TABLE pieces_detachees (
 );
 
 -- ---------------------------------------------------------------------
--- 12. imputations_pieces
+-- 13. imputations_pieces
 -- ---------------------------------------------------------------------
 CREATE TABLE imputations_pieces (
     id_imputation      SERIAL      PRIMARY KEY,
@@ -178,7 +193,7 @@ CREATE TABLE imputations_pieces (
 );
 
 -- ---------------------------------------------------------------------
--- 13. journal_audit
+-- 14. journal_audit
 -- ---------------------------------------------------------------------
 CREATE TABLE journal_audit (
     id_log               BIGSERIAL   PRIMARY KEY,
@@ -191,6 +206,12 @@ CREATE TABLE journal_audit (
 -- ---------------------------------------------------------------------
 -- Index (cles etrangeres et colonnes de recherche frequentes)
 -- ---------------------------------------------------------------------
+CREATE UNIQUE INDEX uq_localisations_signature
+  ON localisations (
+    LOWER(TRIM(nom_service)),
+    LOWER(TRIM(COALESCE(code_bureau, ''))),
+    LOWER(TRIM(ville))
+  );
 CREATE INDEX idx_materiels_localisation    ON materiels(id_localisation);
 CREATE INDEX idx_materiels_origine         ON materiels(id_localisation_origine);
 CREATE INDEX idx_materiels_statut          ON materiels(statut_materiel);
@@ -202,6 +223,12 @@ CREATE INDEX idx_pannes_materiel           ON pannes_incidents(code_materiel);
 CREATE INDEX idx_pannes_declarant          ON pannes_incidents(matricule_declarant);
 CREATE INDEX idx_pannes_statut             ON pannes_incidents(statut_incident);
 CREATE INDEX idx_intervenants_cadre        ON intervenants_fiches(matricule_cadre);
+CREATE UNIQUE INDEX uq_fiches_incident_ouverte
+  ON fiches_interventions(num_incident)
+  WHERE date_fin IS NULL;
+CREATE INDEX idx_fiches_incident_date      ON fiches_interventions(num_incident, date_debut);
+CREATE INDEX idx_comptes_rendus_intervention
+  ON comptes_rendus_intervention(num_intervention, date_saisie, id_compte_rendu);
 CREATE INDEX idx_imputations_intervention  ON imputations_pieces(num_intervention);
 CREATE INDEX idx_imputations_piece         ON imputations_pieces(ref_piece);
 CREATE INDEX idx_audit_operateur           ON journal_audit(matricule_operateur);

@@ -322,6 +322,9 @@ export default function DeclarationsPannes() {
     }] : []),
   ];
 
+  const fichesDetail = detailIncident?.fiches
+    ?? (detailIncident?.fiche ? [detailIncident.fiche] : []);
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -398,7 +401,8 @@ export default function DeclarationsPannes() {
             <tbody>
               {incidents.map((inc) => {
                 const ouvert = STATUTS_OUVERTS.includes(inc.statut_incident);
-                const dejaIntervenant = estDejaIntervenant(inc);
+                const interventionOuverte = inc.intervention_ouverte === true;
+                const dejaIntervenant = interventionOuverte && estDejaIntervenant(inc);
                 return (
                   <tr key={inc.num_incident}>
                     <td className="font-medium">{inc.num_incident}</td>
@@ -416,7 +420,13 @@ export default function DeclarationsPannes() {
                         />
                         {estCadre && ouvert && !dejaIntervenant && (
                           <BoutonIcone
-                            libelle={inc.statut_incident === 'DECLARE' ? 'Intervenir sur l’incident' : 'Rejoindre l’intervention'}
+                            libelle={
+                              interventionOuverte
+                                ? 'Rejoindre l’intervention'
+                                : inc.num_intervention
+                                  ? 'Nouvelle intervention'
+                                  : 'Intervenir sur l’incident'
+                            }
                             icone="intervenir"
                             variante="primaire"
                             onClick={() => void intervenir(inc.num_incident)}
@@ -514,58 +524,107 @@ export default function DeclarationsPannes() {
             )}
 
             <SectionFormulaire
-              titre="Intervention"
+              titre="Interventions"
               description={
                 chargementDetail
                   ? 'Chargement du dossier complet…'
-                  : detailIncident.fiche
-                    ? `${(detailIncident.fiche.intervenants ?? []).length} cadre(s) affecté(s)`
+                  : fichesDetail.length > 0
+                    ? `${fichesDetail.length} fiche(s) d’intervention`
                     : 'Aucune fiche d’intervention associée.'
               }
             >
               {chargementDetail ? (
                 <p className="text-sm text-slate-500">Chargement du dossier complet…</p>
-              ) : detailIncident.fiche ? (
+              ) : fichesDetail.length > 0 ? (
                 <div className="space-y-4">
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <CarteInfo label="N° intervention" valeur={detailIncident.fiche.num_intervention} />
-                    <CarteInfo label="Type" valeur={detailIncident.fiche.type_maintenance} />
-                    <CarteInfo label="Début" valeur={formatDateAvecHeure(detailIncident.fiche.date_debut)} />
-                    <CarteInfo
-                      label="Fin"
-                      valeur={
-                        detailIncident.fiche.date_fin
-                          ? formatDateAvecHeure(detailIncident.fiche.date_fin)
-                          : 'En cours'
-                      }
-                    />
-                  </div>
-                  <div className="grid gap-3 sm:grid-cols-2">
-                    <BlocTexte titre="Diagnostic" contenu={detailIncident.fiche.diagnostic} />
-                    <BlocTexte titre="Travaux réalisés" contenu={detailIncident.fiche.travaux_realises} />
-                  </div>
-                  {(detailIncident.fiche.intervenants ?? []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
-                        Intervenants
-                      </p>
-                      <div className="grid gap-2 sm:grid-cols-2">
-                        {(detailIncident.fiche.intervenants ?? []).map((intervenant) => (
-                          <div
-                            key={intervenant.matricule_cadre}
-                            className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5"
-                          >
-                            <p className="text-sm font-medium text-slate-800">
-                              {intervenant.prenom} {intervenant.nom}
-                            </p>
-                            <p className="text-xs text-slate-500">
-                              {intervenant.specialite} · {intervenant.matricule_cadre}
-                            </p>
+                  {fichesDetail.map((intervention) => (
+                    <div
+                      key={intervention.num_intervention}
+                      className="space-y-4 rounded-xl border border-slate-200 bg-white p-3.5"
+                    >
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-sm font-semibold text-slate-800">
+                          {intervention.num_intervention}
+                        </p>
+                        <span className={`badge ${intervention.date_fin ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                          {intervention.date_fin ? 'Terminée' : 'En cours'}
+                        </span>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <CarteInfo label="Type" valeur={intervention.type_maintenance} />
+                        <CarteInfo
+                          label="État final du matériel"
+                          valeur={
+                            intervention.statut_final_materiel
+                              ? <Badge valeur={intervention.statut_final_materiel} />
+                              : '—'
+                          }
+                        />
+                        <CarteInfo label="Début" valeur={formatDateAvecHeure(intervention.date_debut)} />
+                        <CarteInfo
+                          label="Fin"
+                          valeur={
+                            intervention.date_fin
+                              ? formatDateAvecHeure(intervention.date_fin)
+                              : 'En cours'
+                          }
+                        />
+                      </div>
+                      {(intervention.intervenants ?? []).length > 0 && (
+                        <div>
+                          <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                            Intervenants
+                          </p>
+                          <div className="grid gap-2 sm:grid-cols-2">
+                            {(intervention.intervenants ?? []).map((intervenant) => (
+                              <div
+                                key={intervenant.matricule_cadre}
+                                className="rounded-xl border border-slate-200 bg-white px-3.5 py-2.5"
+                              >
+                                <p className="text-sm font-medium text-slate-800">
+                                  {intervenant.prenom} {intervenant.nom}
+                                </p>
+                                <p className="text-xs text-slate-500">
+                                  {intervenant.specialite} · {intervenant.matricule_cadre}
+                                </p>
+                              </div>
+                            ))}
                           </div>
-                        ))}
+                        </div>
+                      )}
+                      <div>
+                        <p className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-400">
+                          Comptes rendus
+                        </p>
+                        {(intervention.comptes_rendus ?? []).length === 0 ? (
+                          <p className="text-sm italic text-slate-400">Aucun compte rendu.</p>
+                        ) : (
+                          <div className="space-y-2">
+                            {(intervention.comptes_rendus ?? []).map((compte) => (
+                              <div
+                                key={compte.id_compte_rendu}
+                                className="rounded-xl border border-slate-200 bg-white p-3.5"
+                              >
+                                <div className="flex flex-wrap items-center justify-between gap-2">
+                                  <p className="text-xs text-slate-500">
+                                    {formatDateAvecHeure(compte.date_saisie)}
+                                    {compte.auteur ? ` · ${compte.auteur}` : ''}
+                                  </p>
+                                  {compte.est_final && (
+                                    <span className="badge bg-emerald-100 text-emerald-800">Final</span>
+                                  )}
+                                </div>
+                                <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                                  <BlocTexte titre="Diagnostic" contenu={compte.diagnostic} />
+                                  <BlocTexte titre="Travaux réalisés" contenu={compte.travaux_realises} />
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
                     </div>
-                  )}
+                  ))}
                 </div>
               ) : (
                 <p className="text-sm italic text-slate-400">

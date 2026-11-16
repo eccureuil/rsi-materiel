@@ -23,7 +23,7 @@ import {
 import {
   TYPES_MOUVEMENT,
   type Affectation, type BonDecharge, type Localisation,
-  type Materiel, type TypeMouvement,
+  type Materiel, type StatutMateriel, type TypeMouvement,
 } from '@/types/api';
 
 interface Formulaire {
@@ -45,6 +45,14 @@ const LIBELLE_TYPE: Record<TypeMouvement, string> = {
   AFFECTATION: 'Affectation',
   MUTATION: 'Mutation',
   RESTITUTION: 'Restitution',
+};
+
+const LIBELLE_STATUT_MATERIEL: Record<StatutMateriel, string> = {
+  STOCK: 'En stock',
+  SERVICE: 'En service',
+  PANNE: 'En panne',
+  MAINTENANCE: 'En maintenance',
+  REFORME: 'Réformé',
 };
 
 function formatDateSansHeure(valeur: string): string {
@@ -99,7 +107,7 @@ export default function Affectations() {
         : [];
 
   const messageStatut = materielSelectionne && !statutMouvable
-    ? `Le matériel est en ${materielSelectionne.statut_materiel} : aucun mouvement n’est possible.`
+    ? `Le matériel est au statut « ${LIBELLE_STATUT_MATERIEL[materielSelectionne.statut_materiel]} » : aucun mouvement n’est possible.`
     : '';
   const erreurMaterielAffichee = erreurMateriel || messageStatut;
 

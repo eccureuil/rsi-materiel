@@ -1,7 +1,8 @@
 import type { Request, Response } from 'express';
 import {
+  compteRenduParamSchema,
+  compteRenduSchema,
   listInterventionsQuerySchema,
-  majFicheSchema,
   numParamSchema,
   terminerFicheSchema,
 } from '../models/incident.js';
@@ -21,10 +22,32 @@ export class InterventionController {
     res.json({ intervention: await this.service.obtenir(num) });
   };
 
-  mettreAJour = async (req: Request, res: Response): Promise<void> => {
+  ajouterCompteRendu = async (req: Request, res: Response): Promise<void> => {
     const { num } = numParamSchema.parse(req.params);
-    const dto = majFicheSchema.parse(req.body);
-    res.json({ intervention: await this.service.mettreAJour(num, dto, getAuthUser(req).matricule) });
+    const dto = compteRenduSchema.parse(req.body);
+    res.json({
+      intervention: await this.service.ajouterCompteRendu(num, dto, getAuthUser(req).matricule),
+    });
+  };
+
+  modifierCompteRendu = async (req: Request, res: Response): Promise<void> => {
+    const { num, id } = compteRenduParamSchema.parse(req.params);
+    const dto = compteRenduSchema.parse(req.body);
+    res.json({
+      intervention: await this.service.modifierCompteRendu(
+        num,
+        id,
+        dto,
+        getAuthUser(req).matricule,
+      ),
+    });
+  };
+
+  supprimerCompteRendu = async (req: Request, res: Response): Promise<void> => {
+    const { num, id } = compteRenduParamSchema.parse(req.params);
+    res.json({
+      intervention: await this.service.supprimerCompteRendu(num, id, getAuthUser(req).matricule),
+    });
   };
 
   terminer = async (req: Request, res: Response): Promise<void> => {

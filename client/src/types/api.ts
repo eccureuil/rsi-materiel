@@ -112,15 +112,29 @@ export interface Intervenant {
   specialite: string;
 }
 
+export interface CompteRenduIntervention {
+  id_compte_rendu: number;
+  num_intervention: string;
+  matricule_cadre: string | null;
+  auteur: string | null;
+  diagnostic: string | null;
+  travaux_realises: string | null;
+  est_final: boolean;
+  date_saisie: string;
+}
+
 export interface FicheIntervention {
   num_intervention: string;
   num_incident: string;
+  code_materiel?: string;
   type_maintenance: TypeMaintenance;
   diagnostic: string | null;
   travaux_realises: string | null;
+  statut_final_materiel?: StatutMateriel | null;
   date_debut: string;
   date_fin: string | null;
   intervenants?: Intervenant[];
+  comptes_rendus?: CompteRenduIntervention[];
 }
 
 export interface Incident {
@@ -139,9 +153,11 @@ export interface Incident {
   declarant_nom?: string;
   declarant_prenom?: string;
   num_intervention?: string | null;
+  intervention_ouverte?: boolean;
   nb_intervenants?: number;
   intervenants?: string[];
   fiche?: FicheIntervention | null;
+  fiches?: FicheIntervention[];
 }
 export interface IncidentInput {
   code_materiel: string;
@@ -156,9 +172,11 @@ export interface Intervention {
   type_maintenance: TypeMaintenance;
   diagnostic: string | null;
   travaux_realises: string | null;
+  statut_final_materiel?: StatutMateriel | null;
   date_debut: string;
   date_fin: string | null;
   intervenants?: Intervenant[];
+  comptes_rendus?: CompteRenduIntervention[];
 }
 
 export interface Piece {

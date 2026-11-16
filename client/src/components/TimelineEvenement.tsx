@@ -37,6 +37,13 @@ const CONFIG: Record<TypeEvenement, Config> = {
     titre: 'Debut d\'intervention',
     icone: <IconeOutil />,
   },
+  COMPTE_RENDU_INTERVENTION: {
+    couleur: 'bg-sky-500',
+    bg: 'bg-sky-50',
+    texte: 'text-sky-800',
+    titre: 'Compte rendu',
+    icone: <IconeOutil />,
+  },
   PIECE_UTILISEE: {
     couleur: 'bg-purple-500',
     bg: 'bg-purple-50',
@@ -58,6 +65,14 @@ function str(details: Record<string, string | number | null>, cle: string): stri
   const v = details[cle];
   return v === null || v === undefined ? null : String(v);
 }
+
+const LIBELLE_STATUT_MATERIEL: Record<string, string> = {
+  STOCK: 'EN STOCK',
+  SERVICE: 'EN SERVICE',
+  PANNE: 'EN PANNE',
+  MAINTENANCE: 'EN MAINTENANCE',
+  REFORME: 'RÉFORMÉ',
+};
 
 function localisationLabel(nom: string | null, bureau: string | null, ville: string | null): string {
   return `${nom ?? '-'}${bureau ? ` (${bureau})` : ''}${ville ? ` - ${ville}` : ''}`;
@@ -165,6 +180,24 @@ function Details({ evenement }: { evenement: Evenement }) {
         </div>
       );
     }
+    case 'COMPTE_RENDU_INTERVENTION': {
+      const auteur = str(d, 'auteur');
+      const diagnostic = str(d, 'diagnostic');
+      const travaux = str(d, 'travaux_realises');
+      const final = str(d, 'est_final');
+      const numIncident = str(d, 'num_incident');
+      return (
+        <div className="space-y-1 text-xs text-slate-700">
+          <p>
+            {auteur ? `Par ${auteur}` : 'Auteur non renseigné'}
+            {numIncident ? ` - incident ${numIncident}` : ''}
+            {final === 'oui' ? ' - compte rendu final' : ''}
+          </p>
+          {diagnostic && <p>Diagnostic : {diagnostic}</p>}
+          {travaux && <p>Travaux : {travaux}</p>}
+        </div>
+      );
+    }
     case 'PIECE_UTILISEE': {
       const designation = str(d, 'designation');
       const qte = str(d, 'quantite_utilisee');
@@ -177,7 +210,8 @@ function Details({ evenement }: { evenement: Evenement }) {
       );
     }
     case 'INTERVENTION_FIN': {
-      const statut = str(d, 'statut_final_materiel');
+      const statutBrut = str(d, 'statut_final_materiel');
+      const statut = statutBrut ? LIBELLE_STATUT_MATERIEL[statutBrut] ?? statutBrut : null;
       const diag = str(d, 'diagnostic');
       const travaux = str(d, 'travaux_realises');
       const duree = str(d, 'duree_heures');

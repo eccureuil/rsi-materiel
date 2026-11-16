@@ -39,10 +39,8 @@ export class IncidentService {
   async obtenir(num: string): Promise<IncidentDetail> {
     const incident = await this.incidents.findByNum(num);
     if (!incident) throw new AppError(404, 'Incident introuvable.');
-    const fiche = incident.num_intervention
-      ? await this.interventions.findByNum(incident.num_intervention)
-      : null;
-    return { ...incident, fiche };
+    const fiches = await this.interventions.findAllByIncident(num);
+    return { ...incident, fiche: fiches[0] ?? null, fiches };
   }
 
   async declarer(dto: DeclarerIncidentDto, matricule: string): Promise<IncidentDetail> {
@@ -83,10 +81,12 @@ export class IncidentService {
         );
       }
 
-      let numFiche = await this.interventions.findNumByIncidentTx(client, num);
+      let numFiche = await this.interventions.findOuverteByIncidentTx(client, num);
       if (!numFiche) {
         numFiche = await this.interventions.insertFicheTx(client, num, dto.type_maintenance);
-        await this.incidents.updateStatutTx(client, num, 'PRISE_EN_CHARGE');
+        if (incident.statut_incident === 'DECLARE') {
+          await this.incidents.updateStatutTx(client, num, 'PRISE_EN_CHARGE');
+        }
         await this.incidents.setMaterielStatutTx(client, incident.code_materiel, 'MAINTENANCE');
       }
       await this.interventions.addIntervenantTx(client, numFiche, matricule);

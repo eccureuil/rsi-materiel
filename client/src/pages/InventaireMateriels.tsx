@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
-  creerMateriel, listerLocalisations, listerMateriels, modifierMateriel, supprimerMateriel,
+  creerLocalisation, creerMateriel, listerLocalisations, listerMateriels, modifierMateriel,
+  supprimerMateriel,
 } from '@/api/services';
 import { extraireMessageErreur } from '@/api/client';
 import { useToast } from '@/components/Toast';
@@ -96,6 +97,12 @@ function formVide(): Formulaire {
   };
 }
 
+const FORM_LOCALISATION_VIDE = {
+  nom_service: '',
+  code_bureau: '',
+  ville: '',
+};
+
 interface MenuActionsMateriel {
   code: string;
   top: number;
@@ -127,6 +134,8 @@ export default function InventaireMateriels() {
   const [materielEdite, setMaterielEdite] = useState<Materiel | null>(null);
   const [form, setForm] = useState<Formulaire>(formVide);
   const [envoi, setEnvoi] = useState(false);
+  const [creationLocalisationOuverte, setCreationLocalisationOuverte] = useState(false);
+  const [formLocalisation, setFormLocalisation] = useState(FORM_LOCALISATION_VIDE);
   const [menuActions, setMenuActions] = useState<MenuActionsMateriel | null>(null);
   const filtresActifs = q.trim() !== '' || filtreCategorie !== ''
     || filtreStatut !== '' || filtreLocalisation !== '';
@@ -247,6 +256,8 @@ export default function InventaireMateriels() {
     setMaterielEdite(null);
     const codeAuto = genererCodeMateriel(materiels);
     setForm({ ...formVide(), code_materiel: codeAuto, type_categorie: 'BUREAUTIQUE' });
+    setCreationLocalisationOuverte(false);
+    setFormLocalisation(FORM_LOCALISATION_VIDE);
     setModalOuvert(true);
   };
 
@@ -298,6 +309,31 @@ export default function InventaireMateriels() {
       await charger();
     } catch (err) {
       toast.erreur('Enregistrement refusé', extraireMessageErreur(err));
+    } finally {
+      setEnvoi(false);
+    }
+  };
+
+  const creerLocalisationDansMateriel = async (e: FormEvent) => {
+    e.preventDefault();
+    setEnvoi(true);
+    try {
+      const localisation = await creerLocalisation({
+        nom_service: formLocalisation.nom_service.trim(),
+        code_bureau: formLocalisation.code_bureau.trim() || undefined,
+        ville: formLocalisation.ville.trim() || undefined,
+      });
+      toast.succes('Localisation créée', `« ${localisation.nom_service} » a été ajoutée.`);
+      setLocalisations((actuelles) => [...actuelles, localisation]
+        .sort((a, b) => a.nom_service.localeCompare(b.nom_service)));
+      setForm((actuel) => ({
+        ...actuel,
+        id_localisation_origine: String(localisation.id_localisation),
+      }));
+      setCreationLocalisationOuverte(false);
+      setFormLocalisation(FORM_LOCALISATION_VIDE);
+    } catch (err) {
+      toast.erreur('Création refusée', extraireMessageErreur(err));
     } finally {
       setEnvoi(false);
     }
@@ -632,26 +668,110 @@ export default function InventaireMateriels() {
                   </Champ>
                 </>
               ) : (
-                <Champ
-                  label="Localisation d'origine"
-                  requis
-                  className="sm:col-span-2"
-                  aide="Localisation initiale du matériel avant tout mouvement."
-                >
-                  <SelectFiltre
-                    required
-                    value={form.id_localisation_origine}
-                    onChange={(valeur) => setForm({ ...form, id_localisation_origine: valeur })}
-                    placeholder="— Choisir —"
-                    options={[
-                      { value: '', label: '— Choisir —' },
-                      ...localisations.map((l) => ({
-                        value: String(l.id_localisation),
-                        label: `${l.nom_service}${l.code_bureau ? ` — ${l.code_bureau}` : ''} (${l.ville})`,
-                      })),
-                    ]}
-                  />
-                </Champ>
+                <>
+                  <Champ
+                    label="Localisation d'origine"
+                    requis
+                    className="sm:col-span-2"
+                    aide="Localisation initiale du matériel avant tout mouvement."
+                  >
+                    <SelectFiltre
+                      required
+                      value={form.id_localisation_origine}
+                      onChange={(valeur) => setForm({ ...form, id_localisation_origine: valeur })}
+                      placeholder="— Choisir —"
+                      options={[
+                        { value: '', label: '— Choisir —' },
+                        ...localisations.map((l) => ({
+                          value: String(l.id_localisation),
+                          label: `${l.nom_service}${l.code_bureau ? ` — ${l.code_bureau}` : ''} (${l.ville})`,
+                        })),
+                      ]}
+                    />
+                  </Champ>
+
+                  <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-3.5 sm:col-span-2">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-medium text-slate-700">
+                          Localisation absente de la liste ?
+                        </p>
+                        <p className="mt-0.5 text-xs text-slate-500">
+                          Créez-la ici : elle sera ajoutée puis sélectionnée comme localisation d'origine.
+                        </p>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn-secondary"
+                        onClick={() => setCreationLocalisationOuverte((ouvert) => !ouvert)}
+                      >
+                        {creationLocalisationOuverte ? 'Annuler' : 'Nouvelle localisation'}
+                      </button>
+                    </div>
+
+                    {creationLocalisationOuverte && (
+                      <form
+                        onSubmit={creerLocalisationDansMateriel}
+                        className="mt-3 grid gap-3 border-t border-slate-200 pt-3 sm:grid-cols-2"
+                      >
+                        <Champ label="Nom du service" requis>
+                          <Input
+                            required
+                            maxLength={100}
+                            value={formLocalisation.nom_service}
+                            onChange={(e) => setFormLocalisation({
+                              ...formLocalisation,
+                              nom_service: e.target.value,
+                            })}
+                          />
+                        </Champ>
+                        <Champ label="Code bureau" optionnel>
+                          <Input
+                            maxLength={20}
+                            value={formLocalisation.code_bureau}
+                            onChange={(e) => setFormLocalisation({
+                              ...formLocalisation,
+                              code_bureau: e.target.value,
+                            })}
+                          />
+                        </Champ>
+                        <div className="sm:col-span-2">
+                          <Champ
+                            label="Ville"
+                            optionnel
+                            aide="Antananarivo est utilisée par défaut si le champ est vide."
+                          >
+                            <Input
+                              maxLength={50}
+                              placeholder="Antananarivo"
+                              value={formLocalisation.ville}
+                              onChange={(e) => setFormLocalisation({
+                                ...formLocalisation,
+                                ville: e.target.value,
+                              })}
+                            />
+                          </Champ>
+                        </div>
+                        <div className="flex justify-end gap-2 sm:col-span-2">
+                          <button
+                            type="button"
+                            className="btn-secondary"
+                            disabled={envoi}
+                            onClick={() => {
+                              setCreationLocalisationOuverte(false);
+                              setFormLocalisation(FORM_LOCALISATION_VIDE);
+                            }}
+                          >
+                            Annuler
+                          </button>
+                          <button type="submit" className="btn-primary" disabled={envoi}>
+                            {envoi ? 'Création…' : 'Créer et sélectionner'}
+                          </button>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                </>
               )}
             </FormGrid>
           </SectionFormulaire>

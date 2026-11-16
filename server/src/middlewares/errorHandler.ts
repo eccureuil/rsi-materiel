@@ -18,6 +18,7 @@ function isPgError(err: unknown): err is PgErrorLike {
 }
 
 const MESSAGES_UNICITE: Record<string, string> = {
+  uq_localisations_signature: 'Cette localisation existe déjà.',
   materiels_pkey: 'Ce code matériel existe déjà.',
   materiels_num_serie_key: 'Ce numéro de série est déjà enregistré.',
   pieces_detachees_pkey: 'Cette référence de pièce existe déjà.',
