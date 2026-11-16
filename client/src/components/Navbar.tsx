@@ -48,7 +48,7 @@ export default function Navbar() {
             className="group flex min-w-0 items-center gap-2.5 rounded-lg px-1.5 py-1 transition-colors hover:bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-asecna-bleu/30 sm:gap-3 sm:px-2"
             title="Voir mon profil"
           >
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-asecna-bleu to-asecna-clair text-sm font-semibold text-white shadow-sm ring-2 ring-white">
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-linear-to-br from-asecna-bleu to-asecna-clair text-sm font-semibold text-white shadow-sm ring-2 ring-white">
               {initiales}
             </div>
             <div className="min-w-0 max-w-24 text-left sm:max-w-none">

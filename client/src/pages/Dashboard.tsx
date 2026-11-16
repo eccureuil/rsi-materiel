@@ -611,7 +611,7 @@ function DonutMateriels({ parStatut, total }: { parStatut: Record<StatutMateriel
   return (
     <div className="relative mx-auto h-40 w-40">
       <div className="absolute inset-0 rounded-full shadow-inner ring-1 ring-slate-100" style={{ background: degrade }} />
-      <div className="absolute inset-[18px] flex flex-col items-center justify-center rounded-full bg-white shadow-sm">
+      <div className="absolute inset-4.5 flex flex-col items-center justify-center rounded-full bg-white shadow-sm">
         <span className="text-2xl font-bold text-slate-900">{total}</span>
         <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-400">matériels</span>
       </div>

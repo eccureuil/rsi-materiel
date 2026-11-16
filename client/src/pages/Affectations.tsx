@@ -453,7 +453,7 @@ export default function Affectations() {
             <input type="checkbox" className="case" checked={form.generer_bon}
               onChange={(e) => setForm({ ...form, generer_bon: e.target.checked })} />
             <span>Générer un bon de décharge</span>
-            <span className="ml-auto text-[10px] font-medium uppercase tracking-[0.1em] text-slate-400">Optionnel</span>
+            <span className="ml-auto text-[10px] font-medium uppercase tracking-widest text-slate-400">Optionnel</span>
           </label>
         </form>
       </Modal>

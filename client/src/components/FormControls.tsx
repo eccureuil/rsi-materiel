@@ -336,7 +336,7 @@ export function SelectFiltre({
         disabled={disabled}
         onClick={() => (ouvert ? setOuvert(false) : ouvrir())}
         onKeyDown={gererClavier}
-        className={`flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-left text-sm shadow-sm outline-none transition focus:border-asecna-bleu focus:bg-white focus:ring-4 focus:ring-asecna-bleu/10 aria-[invalid=true]:border-red-300 aria-[invalid=true]:bg-red-50/40 aria-[invalid=true]:focus:border-red-400 aria-[invalid=true]:focus:ring-red-100 disabled:cursor-not-allowed disabled:opacity-60 ${
+        className={`flex h-11 w-full items-center justify-between gap-3 rounded-xl border border-slate-200 bg-slate-50/50 px-3 text-left text-sm shadow-sm outline-none transition focus:border-asecna-bleu focus:bg-white focus:ring-4 focus:ring-asecna-bleu/10 aria-invalid:border-red-300 aria-invalid:bg-red-50/40 aria-invalid:focus:border-red-400 aria-invalid:focus:ring-red-100 disabled:cursor-not-allowed disabled:opacity-60 ${
           ouvert ? 'border-asecna-bleu bg-white ring-4 ring-asecna-bleu/10' : ''
         } ${selection ? 'text-slate-800' : 'text-slate-400'} ${className}`}
       >
