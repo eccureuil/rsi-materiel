@@ -55,8 +55,8 @@ app.use(errorHandler);
 
 async function demarrer(): Promise<void> {
   await verifierConnexionDB();
-  app.listen(env.PORT, () => {
-    console.log(`Serveur RSI démarré sur http://localhost:${env.PORT}`);
+  app.listen(env.PORT, env.HOST, () => {
+    console.log(`Serveur RSI démarré sur http://${env.HOST}:${env.PORT}`);
   });
 }
 
