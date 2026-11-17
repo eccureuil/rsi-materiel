@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import {
   creerLocalisation, creerMateriel, listerLocalisations, listerMateriels, modifierMateriel,
-  supprimerMateriel,
+  supprimerMateriel, urlPdfInventaire,
 } from '@/api/services';
 import { extraireMessageErreur } from '@/api/client';
 import { useToast } from '@/components/Toast';
@@ -22,7 +22,7 @@ import {
 import { useDebounce } from '@/hooks/useDebounce';
 import { Link, useSearchParams } from 'react-router-dom';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
-import { BoutonIcone, IconeAction, LienIcone } from '@/components/BoutonIcone';
+import { BoutonIcone, IconeAction, LienExterneIcone, LienIcone } from '@/components/BoutonIcone';
 import { SkeletonTableau } from '@/components/Skeleton';
 import { EnteteTableau, Tableau } from '@/components/Tableau';
 
@@ -362,9 +362,24 @@ export default function InventaireMateriels() {
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold text-slate-900">Inventaire des matériels</h1>
-        <BoutonCreation libelle="Nouveau matériel" onClick={ouvrirCreation} />
+        <div className="flex items-center gap-2">
+          <LienExterneIcone
+            href={urlPdfInventaire({
+              q,
+              type_categorie: filtreCategorie,
+              statut_materiel: filtreStatut,
+              id_localisation: filtreLocalisation,
+            })}
+            target="_blank"
+            rel="noopener noreferrer"
+            libelle="Ouvrir l’aperçu PDF de l’inventaire"
+            icone="voir"
+            variante="primaire"
+          />
+          <BoutonCreation libelle="Nouveau matériel" onClick={ouvrirCreation} />
+        </div>
       </div>
 
       <div className="card">

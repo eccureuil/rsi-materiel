@@ -93,9 +93,13 @@ export async function declarerIncident(input: IncidentInput): Promise<Incident> 
   const { data } = await api.post<{ incident: Incident }>('/incidents', input);
   return data.incident;
 }
-export async function intervenirIncident(num: string, type_maintenance?: string): Promise<void> {
-  await api.post(`/incidents/${num}/intervenir`, { type_maintenance });
+export async function intervenirIncident(num: string, type_maintenance?: string): Promise<Incident> {
+  const { data } = await api.post<{ incident: Incident }>(
+    `/incidents/${num}/intervenir`,
+    { type_maintenance },
+  );
   signalerChangementInterventions();
+  return data.incident;
 }
 export async function rejeterIncident(num: string, motif: string): Promise<void> {
   await api.post(`/incidents/${num}/rejeter`, { motif });
@@ -311,13 +315,38 @@ export async function genererBonAffectation(id: number): Promise<BonDecharge> {
   const { data } = await api.post<{ bon: BonDecharge }>(`/affectations/${id}/bon`);
   return data.bon;
 }
+function urlApi(chemin: string): string {
+  return `${api.defaults.baseURL ?? ''}${chemin}`;
+}
+
 export function urlPdfBonNum(numBon: string, telecharger = false): string {
-  const url = `http://localhost:3000/api/bons/${numBon}/pdf`;
+  const url = urlApi(`/bons/${encodeURIComponent(numBon)}/pdf`);
   return telecharger ? `${url}?telecharger=true` : url;
 }
-export function urlPdfBon(bon: BonDecharge): string | null {
-  if (!bon.chemin_fichier_pdf) return null;
-  return urlPdfBonNum(bon.num_bon, true);
+
+export function urlPdfBon(bon: BonDecharge): string {
+  return urlPdfBonNum(bon.num_bon);
+}
+
+export interface FiltresPdfInventaire {
+  q?: string;
+  type_categorie?: string;
+  statut_materiel?: string;
+  id_localisation?: string | number;
+}
+
+export function urlPdfInventaire(filtres: FiltresPdfInventaire = {}): string {
+  const params = new URLSearchParams();
+  if (filtres.q?.trim()) params.set('q', filtres.q.trim());
+  if (filtres.type_categorie) params.set('type_categorie', filtres.type_categorie);
+  if (filtres.statut_materiel) params.set('statut_materiel', filtres.statut_materiel);
+  if (filtres.id_localisation) params.set('id_localisation', String(filtres.id_localisation));
+  const query = params.toString();
+  return urlApi(`/exports/materiels/pdf${query ? `?${query}` : ''}`);
+}
+
+export function urlPdfFicheIntervention(num: string): string {
+  return urlApi(`/exports/interventions/${encodeURIComponent(num)}/pdf`);
 }
 // ---------- Historique ----------
 import type {

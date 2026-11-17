@@ -1,8 +1,8 @@
-import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
+import { useCallback, useEffect, useRef, useState, type FormEvent, type ReactNode } from 'react';
 import {
   ajouterCompteRenduIntervention, creerPiece, imputerPiece, listerImputations, listerInterventions,
   listerPieces, modifierCompteRenduIntervention, obtenirIntervention, supprimerCompteRenduIntervention,
-  supprimerImputation, terminerIntervention,
+  supprimerImputation, terminerIntervention, urlPdfFicheIntervention,
 } from '@/api/services';
 import { extraireMessageErreur } from '@/api/client';
 import { useAuth } from '@/context/AuthContext';
@@ -20,7 +20,7 @@ import type {
 } from '@/types/api';
 import { useSearchParams } from 'react-router-dom';
 import { SkeletonTableau } from '@/components/Skeleton';
-import { BoutonIcone } from '@/components/BoutonIcone';
+import { BoutonIcone, LienExterneIcone } from '@/components/BoutonIcone';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 import { EnteteTableau, Tableau } from '@/components/Tableau';
 
@@ -109,6 +109,8 @@ export default function Interventions() {
   const [filtreType, setFiltreType] = useState(searchParams.get('type_maintenance') ?? '');
   const [filtreTerminee, setFiltreTerminee] = useState(searchParams.get('terminee') ?? '');
   const [mesInterventions, setMesInterventions] = useState(searchParams.get('mes_interventions') === 'true');
+  const ficheParam = searchParams.get('fiche');
+  const ficheParamTraitee = useRef<string | null>(null);
   const filtresActifs = filtreType !== '' || filtreTerminee !== '' || mesInterventions;
 
   const reinitialiserFiltres = () => {
@@ -176,7 +178,7 @@ export default function Interventions() {
 
   useEffect(() => { void charger(); }, [charger]);
 
-  const ouvrirFiche = async (num: string) => {
+  const ouvrirFiche = useCallback(async (num: string) => {
     try {
       const [i, imps] = await Promise.all([obtenirIntervention(num), listerImputations(num)]);
       setFiche(i);
@@ -191,7 +193,13 @@ export default function Interventions() {
       setImputRef(''); setImputQte(1);
       setCreationPieceOuverte(false); setFormPiece(FORM_PIECE_VIDE);
     } catch (err) { toast.erreur('Fiche indisponible', extraireMessageErreur(err)); }
-  };
+  }, [toast]);
+
+  useEffect(() => {
+    if (!ficheParam || ficheParamTraitee.current === ficheParam) return;
+    ficheParamTraitee.current = ficheParam;
+    void ouvrirFiche(ficheParam);
+  }, [ficheParam, ouvrirFiche]);
 
   const fermerFiche = () => {
     setFiche(null); setImputations([]); setDiagEdit(''); setTravauxEdit('');
@@ -505,6 +513,16 @@ export default function Interventions() {
               <CarteInfo label="Fin" valeur={fiche.date_fin ? formatDateHeure(fiche.date_fin) : 'En cours'} />
               <CarteInfo label="Incident" valeur={fiche.num_incident} />
               <CarteInfo label="Matériel" valeur={fiche.code_materiel ?? '—'} />
+            </div>
+
+            <div className="flex justify-end">
+              <LienExterneIcone
+                href={urlPdfFicheIntervention(fiche.num_intervention)}
+                target="_blank"
+                rel="noopener noreferrer"
+                libelle={`Ouvrir la fiche PDF ${fiche.num_intervention}`}
+                icone="voir"
+              />
             </div>
 
             <SectionFormulaire

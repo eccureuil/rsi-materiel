@@ -350,11 +350,11 @@ export default function Affectations() {
                     {a.num_bon ? (
                       <div className="flex flex-col items-start gap-1">
                         <LienExterneIcone
-                          href={urlPdfBonNum(a.num_bon, true)}
+                          href={urlPdfBonNum(a.num_bon)}
                           target="_blank"
                           rel="noopener noreferrer"
-                          libelle={`Télécharger le bon ${a.num_bon}`}
-                          icone="telecharger"
+                          libelle={`Ouvrir le bon ${a.num_bon}`}
+                          icone="voir"
                         />
                         <span className="font-mono text-[10px] text-slate-400">{a.num_bon}</span>
                       </div>
@@ -475,7 +475,7 @@ export default function Affectations() {
             <button type="button" className="btn-secondary" onClick={() => setBonGenere(null)}>Fermer</button>
             {urlPdf && (
               <a href={urlPdf} target="_blank" rel="noopener noreferrer" className="btn-primary">
-                Telecharger le PDF
+                Ouvrir le PDF
               </a>
             )}
           </>
@@ -493,11 +493,6 @@ export default function Affectations() {
             )}
             {bonGenere.motif_mouvement && (
               <p><span className="font-semibold">Motif :</span> {bonGenere.motif_mouvement}</p>
-            )}
-            {!urlPdf && (
-              <p className="rounded-md bg-amber-50 p-2 text-xs text-amber-800 ring-1 ring-amber-200">
-                Le PDF n&apos;est pas encore disponible.
-              </p>
             )}
           </div>
         )}

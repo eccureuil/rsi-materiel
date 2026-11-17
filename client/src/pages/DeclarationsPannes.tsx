@@ -1,10 +1,10 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react';
 import {
   cloturerIncident, declarerIncident, intervenirIncident,
-  listerIncidents, obtenirIncident, obtenirMateriel, rejeterIncident,
+  listerIncidents, obtenirIncident, obtenirMateriel, rejeterIncident, urlPdfFicheIntervention,
 } from '@/api/services';
 import { extraireMessageErreur } from '@/api/client';
-import { useSearchParams } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '@/context/AuthContext';
 import { useToast } from '@/components/Toast';
 import { useConfirm } from '@/components/ConfirmDialog';
@@ -15,7 +15,7 @@ import Pagination from '@/components/Pagination';
 import Badge from '@/components/Badge';
 import EmptyState, { IconesEmpty } from '@/components/EmptyState';
 import SelecteurMateriel from '@/components/SelecteurMateriel';
-import { BoutonIcone } from '@/components/BoutonIcone';
+import { BoutonIcone, LienExterneIcone } from '@/components/BoutonIcone';
 import { SkeletonTableau } from '@/components/Skeleton';
 import { EnteteTableau, Tableau } from '@/components/Tableau';
 import {
@@ -93,6 +93,7 @@ export default function DeclarationsPannes() {
   const toast = useToast();
   const { confirmer } = useConfirm();
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
   const estCadre = hasRole('CADRE_MAINTENANCE');
 
   const [incidents, setIncidents] = useState<Incident[]>([]);
@@ -264,8 +265,16 @@ export default function DeclarationsPannes() {
 
   const intervenir = async (num: string) => {
     try {
-      await intervenirIncident(num);
+      const incident = await intervenirIncident(num);
       toast.succes('Incident pris en charge', `Vous etes intervenant sur ${num}.`);
+      const numFiche = incident.num_intervention
+        ?? incident.fiche?.num_intervention
+        ?? incident.fiches?.[0]?.num_intervention;
+      if (numFiche) {
+        navigate(`/interventions?fiche=${encodeURIComponent(numFiche)}`);
+        return;
+      }
+      toast.avertissement('Fiche indisponible', `La fiche d'intervention de ${num} est introuvable.`);
       await charger();
     } catch (err) { toast.erreur('Action impossible', extraireMessageErreur(err)); }
   };
@@ -546,9 +555,18 @@ export default function DeclarationsPannes() {
                         <p className="text-sm font-semibold text-slate-800">
                           {intervention.num_intervention}
                         </p>
-                        <span className={`badge ${intervention.date_fin ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
-                          {intervention.date_fin ? 'Terminée' : 'En cours'}
-                        </span>
+                        <div className="flex items-center gap-2">
+                          <span className={`badge ${intervention.date_fin ? 'bg-slate-100 text-slate-700' : 'bg-amber-100 text-amber-800'}`}>
+                            {intervention.date_fin ? 'Terminée' : 'En cours'}
+                          </span>
+                          <LienExterneIcone
+                            href={urlPdfFicheIntervention(intervention.num_intervention)}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            libelle={`Ouvrir la fiche PDF ${intervention.num_intervention}`}
+                            icone="voir"
+                          />
+                        </div>
                       </div>
                       <div className="grid gap-3 sm:grid-cols-2">
                         <CarteInfo label="Type" valeur={intervention.type_maintenance} />
